@@ -10,34 +10,52 @@ import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, cities, recent, produce, free, featured] = await Promise.all([
-    prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
-    getActiveListings({}, 8),
-    prisma.listing.findMany({
-      where: { status: ListingStatus.ACTIVE, category: { isProduce: true } },
-      include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { publishedAt: "desc" },
-      take: 8,
-    }),
-    getActiveListings({ listingType: ListingType.FREE }, 8),
-    prisma.listing.findMany({
-      where: { status: ListingStatus.ACTIVE, isFeatured: true },
-      include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { publishedAt: "desc" },
-      take: 8,
-    }),
-  ]);
+  let categories: Awaited<ReturnType<typeof prisma.category.findMany>> = [];
+  let cities: Awaited<ReturnType<typeof prisma.city.findMany>> = [];
+  let recent: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let produce: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let free: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let featured: Awaited<ReturnType<typeof prisma.listing.findMany>> = [];
+  let popular: Awaited<ReturnType<typeof prisma.listing.findMany>> = [];
+  let dbError = "";
 
-  const popular = await prisma.listing.findMany({
-    where: { status: ListingStatus.ACTIVE },
-    include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-    orderBy: [{ favoriteCount: "desc" }, { viewCount: "desc" }],
-    take: 8,
-  });
+  try {
+    [categories, cities, recent, produce, free, featured] = await Promise.all([
+      prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
+      prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+      getActiveListings({}, 8),
+      prisma.listing.findMany({
+        where: { status: ListingStatus.ACTIVE, category: { isProduce: true } },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { publishedAt: "desc" },
+        take: 8,
+      }),
+      getActiveListings({ listingType: ListingType.FREE }, 8),
+      prisma.listing.findMany({
+        where: { status: ListingStatus.ACTIVE, isFeatured: true },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { publishedAt: "desc" },
+        take: 8,
+      }),
+    ]);
+    popular = await prisma.listing.findMany({
+      where: { status: ListingStatus.ACTIVE },
+      include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+      orderBy: [{ favoriteCount: "desc" }, { viewCount: "desc" }],
+      take: 8,
+    });
+  } catch (error) {
+    dbError = error instanceof Error ? error.message : "Database is not ready.";
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
+      {dbError && (
+        <p className="rounded-2xl bg-gold/20 px-4 py-3 text-sm">
+          SLO Market is running, but the database is not ready yet. In Render, add a Postgres database, set{" "}
+          <strong>DATABASE_URL</strong>, then redeploy. ({dbError})
+        </p>
+      )}
       <SearchHero />
 
       <section>
