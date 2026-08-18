@@ -7,6 +7,8 @@ import { getActiveListings } from "@/lib/listings";
 import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [categories, cities, recent, produce, free, featured] = await Promise.all([
     prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
