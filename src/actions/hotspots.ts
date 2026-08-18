@@ -1,0 +1,171 @@
+"use server";
+
+import { Condition, CollectionType, FulfillmentMethod, ListingStatus, ListingType } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { uniqueCollectionSlug, uniqueListingSlug } from "@/lib/slug";
+import { saveListingImage } from "@/lib/storage";
+import { revalidatePath } from "next/cache";
+
+async function currentUser() {
+  const session = await getSession();
+  if (!session?.user?.id) throw new Error("Please sign in first.");
+  return session.user;
+}
+
+export async function createPhotoCollection(formData: FormData) {
+  const user = await currentUser();
+  const title = String(formData.get("title") || "Garage Sale").trim();
+  const cityId = String(formData.get("cityId") || "");
+  const categoryId = String(formData.get("categoryId") || "");
+  const type = (String(formData.get("type") || "GARAGE_SALE") as CollectionType);
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || !photo.size) throw new Error("Please upload a photo.");
+  const city = await prisma.city.findUnique({ where: { id: cityId } });
+  if (!city) throw new Error("Choose a city.");
+  const saved = await saveListingImage(photo, true);
+  const collection = await prisma.collection.create({
+    data: {
+      title,
+      slug: await uniqueCollectionSlug(title, city.name),
+      type,
+      sellerId: user.id,
+      cityId,
+      status: ListingStatus.ACTIVE,
+      images: {
+        create: {
+          originalUrl: saved.originalUrl,
+          displayUrl: saved.url,
+          width: saved.width,
+          height: saved.height,
+        },
+      },
+    },
+    include: { images: true },
+  });
+  return { collectionId: collection.id, imageId: collection.images[0].id, slug: collection.slug, categoryId };
+}
+
+export async function saveHotspotItem(input: {
+  collectionId: string;
+  imageId: string;
+  categoryId: string;
+  title: string;
+  price: number;
+  description: string;
+  condition: Condition;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  extra?: Record<string, string>;
+  listingId?: string;
+}) {
+  const user = await currentUser();
+  const collection = await prisma.collection.findFirst({
+    where: { id: input.collectionId, sellerId: user.id },
+    include: { city: true },
+  });
+  if (!collection) throw new Error("Collection not found.");
+  const image = await prisma.collectionImage.findFirst({ where: { id: input.imageId, collectionId: collection.id } });
+  if (!image) throw new Error("Photo not found.");
+
+  const data = {
+    title: input.title,
+    description: input.description || "See photo.",
+    listingType: input.price > 0 ? ListingType.FOR_SALE : ListingType.FREE,
+    condition: input.condition,
+    priceCents: Math.round(input.price * 100),
+    status: ListingStatus.ACTIVE,
+    sellerId: user.id,
+    categoryId: input.categoryId,
+    cityId: collection.cityId,
+    fulfillment: collection.fulfillment,
+    collectionId: collection.id,
+    publishedAt: new Date(),
+    seoTitle: `${input.title} in ${collection.city.name} | SLO Market`,
+    seoDescription: input.description.slice(0, 155),
+  };
+
+  const listing = input.listingId
+    ? await prisma.listing.update({ where: { id: input.listingId }, data })
+    : await prisma.listing.create({
+        data: {
+          ...data,
+          slug: await uniqueListingSlug(input.title, collection.city.name),
+          images: {
+            create: {
+              url: image.displayUrl || image.originalUrl,
+              thumbnailUrl: image.displayUrl || image.originalUrl,
+              alt: input.title,
+            },
+          },
+        },
+      });
+
+  await prisma.listingHotspot.upsert({
+    where: { listingId: listing.id },
+    update: {
+      collectionImageId: image.id,
+      x: input.x,
+      y: input.y,
+      width: input.width,
+      height: input.height,
+      markerLabel: input.price > 0 ? `$${Math.round(input.price)}` : "FREE",
+      brand: input.extra?.brand,
+      model: input.extra?.model,
+      measurements: input.extra?.measurements,
+      age: input.extra?.age,
+      features: input.extra?.features,
+      defects: input.extra?.defects,
+      additionalDetails: input.extra?.additionalDetails,
+      pickupNotes: input.extra?.pickupNotes,
+    },
+    create: {
+      listingId: listing.id,
+      collectionImageId: image.id,
+      x: input.x,
+      y: input.y,
+      width: input.width,
+      height: input.height,
+      markerLabel: input.price > 0 ? `$${Math.round(input.price)}` : "FREE",
+      brand: input.extra?.brand,
+      model: input.extra?.model,
+      measurements: input.extra?.measurements,
+      age: input.extra?.age,
+      features: input.extra?.features,
+      defects: input.extra?.defects,
+      additionalDetails: input.extra?.additionalDetails,
+      pickupNotes: input.extra?.pickupNotes,
+    },
+  });
+
+  revalidatePath(`/collection/${collection.slug}`);
+  return { listingId: listing.id, slug: listing.slug };
+}
+
+export async function deleteHotspotItem(listingId: string) {
+  const user = await currentUser();
+  const listing = await prisma.listing.findFirst({ where: { id: listingId, sellerId: user.id } });
+  if (!listing) throw new Error("Item not found.");
+  await prisma.listing.update({ where: { id: listingId }, data: { status: ListingStatus.REMOVED } });
+}
+
+export async function markHotspotSold(listingId: string) {
+  const user = await currentUser();
+  const listing = await prisma.listing.findFirst({ where: { id: listingId, sellerId: user.id } });
+  if (!listing) throw new Error("Item not found.");
+  await prisma.listing.update({ where: { id: listingId }, data: { status: ListingStatus.SOLD, soldAt: new Date() } });
+}
+
+export async function updateCollectionFulfillment(collectionId: string, fulfillment: FulfillmentMethod, hideSold: boolean) {
+  const user = await currentUser();
+  await prisma.collection.updateMany({
+    where: { id: collectionId, sellerId: user.id },
+    data: { fulfillment, hideSold },
+  });
+  await prisma.listing.updateMany({
+    where: { collectionId, sellerId: user.id },
+    data: { fulfillment },
+  });
+}

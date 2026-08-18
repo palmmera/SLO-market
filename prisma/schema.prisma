@@ -1,0 +1,622 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ListingType {
+  FOR_SALE
+  FREE
+  WANTED
+}
+
+enum Condition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  USED
+  FOR_PARTS
+}
+
+enum FulfillmentMethod {
+  PICKUP_ONLY
+  LOCAL_DELIVERY
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  SOLD
+  RESERVED
+  REMOVED
+}
+
+enum OrderStatus {
+  PAYMENT_PENDING
+  PAID
+  SELLER_CONFIRMED
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+enum StripeConnectStatus {
+  NOT_CONNECTED
+  SETUP_INCOMPLETE
+  CONNECTED
+  PAYOUTS_ENABLED
+}
+
+enum ReportReason {
+  SPAM
+  PROHIBITED
+  FRAUD
+  INAPPROPRIATE
+  OTHER
+}
+
+enum ReportTarget {
+  LISTING
+  USER
+  REVIEW
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  PURCHASE
+  SALE
+  PAYMENT
+  SELLER_RESPONSE
+  LISTING_FAVORITE
+  PRICE_CHANGE
+  LISTING_SOLD
+  LISTING_REMOVED
+  REFUND
+  DISPUTE
+  STRIPE_ONBOARDING
+}
+
+enum StripeFeeTreatment {
+  DEDUCT_FROM_SELLER
+  ABSORB_BY_PLATFORM
+  CONNECT_DEFAULT
+}
+
+enum CollectionType {
+  GARAGE_SALE
+  YARD_SALE
+  ROOM
+  PRODUCE_STAND
+  OTHER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String
+  image         String?
+  role          UserRole  @default(USER)
+  cityId        String?
+  city          City?     @relation(fields: [cityId], references: [id])
+  bio           String?
+  phone         String?
+  isSuspended   Boolean   @default(false)
+  suspendedAt   DateTime?
+  suspendReason String?
+  lastActiveAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts              Account[]
+  sessions              Session[]
+  listings              Listing[]                      @relation("SellerListings")
+  favorites             Favorite[]
+  conversationsAsBuyer  Conversation[]                 @relation("BuyerConversations")
+  conversationsAsSeller Conversation[]                 @relation("SellerConversations")
+  messages              Message[]
+  ordersBought          Order[]                        @relation("BuyerOrders")
+  ordersSold            Order[]                        @relation("SellerOrders")
+  reviewsGiven          Review[]                       @relation("Reviewer")
+  reviewsReceived       Review[]                       @relation("Reviewee")
+  reportsMade           Report[]                       @relation("Reporter")
+  reportsAgainst        Report[]                       @relation("ReportedUser")
+  notifications         Notification[]
+  stripeAccount         StripeAccount?
+  blocksMade            UserBlock[]                    @relation("Blocker")
+  blocksReceived        UserBlock[]                    @relation("Blocked")
+  collections           Collection[]
+  enhancedPurchases     EnhancedDescriptionPurchase[]
+  auditLogs             AuditLog[]
+
+  @@index([email])
+  @@index([cityId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model City {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  county      String       @default("San Luis Obispo County")
+  state       String       @default("CA")
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean      @default(true)
+  sortOrder   Int          @default(0)
+  seoTitle    String?
+  seoDescription String?
+  users       User[]
+  listings    Listing[]
+  collections Collection[]
+}
+
+model Category {
+  id             String     @id @default(cuid())
+  name           String
+  slug           String     @unique
+  description    String?
+  icon           String?
+  parentId       String?
+  parent         Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children       Category[] @relation("CategoryTree")
+  isActive       Boolean    @default(true)
+  isProduce      Boolean    @default(false)
+  isFree         Boolean    @default(false)
+  sortOrder      Int        @default(0)
+  seoTitle       String?
+  seoDescription String?
+  listings       Listing[]
+}
+
+model Listing {
+  id                  String            @id @default(cuid())
+  slug                String            @unique
+  title               String
+  description         String
+  listingType         ListingType
+  condition           Condition?
+  priceCents          Int               @default(0)
+  status              ListingStatus     @default(DRAFT)
+  sellerId            String
+  seller              User              @relation("SellerListings", fields: [sellerId], references: [id])
+  categoryId          String
+  category            Category          @relation(fields: [categoryId], references: [id])
+  cityId              String
+  city                City              @relation(fields: [cityId], references: [id])
+  fulfillment         FulfillmentMethod @default(PICKUP_ONLY)
+  deliveryRadiusMiles Int?
+  deliveryFeeCents    Int               @default(0)
+  freeDelivery        Boolean           @default(false)
+  enhancedDescription Boolean           @default(false)
+  extraDetails        Json?
+  viewCount           Int               @default(0)
+  favoriteCount       Int               @default(0)
+  isFeatured          Boolean           @default(false)
+  featuredUntil       DateTime?
+  seoTitle            String?
+  seoDescription      String?
+  collectionId        String?
+  collection          Collection?       @relation(fields: [collectionId], references: [id])
+  hotspot             ListingHotspot?
+  soldAt              DateTime?
+  publishedAt         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  images        ListingImage[]
+  favorites     Favorite[]
+  conversations Conversation[]
+  orderItems    OrderItem[]
+  reports       Report[]
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status])
+  @@index([cityId, status])
+  @@index([sellerId])
+  @@index([listingType, status])
+  @@index([isFeatured, status])
+}
+
+model ListingImage {
+  id           String  @id @default(cuid())
+  listingId    String
+  listing      Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url          String
+  thumbnailUrl String?
+  width        Int?
+  height       Int?
+  sortOrder    Int     @default(0)
+  alt          String?
+}
+
+model ListingHotspot {
+  id                 String          @id @default(cuid())
+  listingId          String          @unique
+  listing            Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  collectionImageId  String
+  collectionImage    CollectionImage @relation(fields: [collectionImageId], references: [id], onDelete: Cascade)
+  x                  Float
+  y                  Float
+  width              Float
+  height             Float
+  markerLabel        String?
+  hideIfSold         Boolean         @default(false)
+  brand              String?
+  model              String?
+  measurements       String?
+  age                String?
+  features           String?
+  defects            String?
+  additionalDetails  String?
+  pickupNotes        String?
+}
+
+model Collection {
+  id                  String            @id @default(cuid())
+  slug                String            @unique
+  title               String
+  description         String?
+  type                CollectionType    @default(GARAGE_SALE)
+  sellerId            String
+  seller              User              @relation(fields: [sellerId], references: [id])
+  cityId              String
+  city                City              @relation(fields: [cityId], references: [id])
+  fulfillment         FulfillmentMethod @default(PICKUP_ONLY)
+  deliveryRadiusMiles Int?
+  deliveryFeeCents    Int               @default(0)
+  hideSold            Boolean           @default(false)
+  status              ListingStatus     @default(DRAFT)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  images              CollectionImage[]
+  listings            Listing[]
+}
+
+model CollectionImage {
+  id           String           @id @default(cuid())
+  collectionId String
+  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  originalUrl  String
+  displayUrl   String?
+  width        Int?
+  height       Int?
+  sortOrder    Int              @default(0)
+  hotspots     ListingHotspot[]
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  listingId     String?
+  listing       Listing?  @relation(fields: [listingId], references: [id])
+  orderId       String?
+  order         Order?    @relation(fields: [orderId], references: [id])
+  buyerId       String
+  buyer         User      @relation("BuyerConversations", fields: [buyerId], references: [id])
+  sellerId      String
+  seller        User      @relation("SellerConversations", fields: [sellerId], references: [id])
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  messages      Message[]
+
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  body           String
+  listingId      String?
+  orderId        String?
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Order {
+  id                      String            @id @default(cuid())
+  orderNumber             String            @unique
+  status                  OrderStatus       @default(PAYMENT_PENDING)
+  buyerId                 String
+  buyer                   User              @relation("BuyerOrders", fields: [buyerId], references: [id])
+  sellerId                String
+  seller                  User              @relation("SellerOrders", fields: [sellerId], references: [id])
+  itemPriceCents          Int
+  deliveryFeeCents        Int               @default(0)
+  totalCents              Int
+  platformFeeCents        Int
+  sellerPayoutCents       Int
+  fulfillment             FulfillmentMethod
+  stripePaymentIntentId   String?
+  stripeCheckoutSessionId String?
+  stripeChargeId          String?
+  paidAt                  DateTime?
+  sellerConfirmedAt       DateTime?
+  completedAt             DateTime?
+  cancelledAt             DateTime?
+  cancelReason            String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  items         OrderItem[]
+  payment       Payment?
+  payout        Payout?
+  platformFee   PlatformFee?
+  refunds       Refund[]
+  disputes      Dispute[]
+  review        Review?
+  conversations Conversation[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listingId  String
+  listing    Listing @relation(fields: [listingId], references: [id])
+  title      String
+  priceCents Int
+  quantity   Int     @default(1)
+}
+
+model Payment {
+  id                    String   @id @default(cuid())
+  orderId               String   @unique
+  order                 Order    @relation(fields: [orderId], references: [id])
+  stripePaymentIntentId String   @unique
+  stripeChargeId        String?
+  amountCents           Int
+  currency              String   @default("usd")
+  status                String
+  rawEvent              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Payout {
+  id                     String   @id @default(cuid())
+  orderId                String   @unique
+  order                  Order    @relation(fields: [orderId], references: [id])
+  stripeTransferId       String?
+  stripeConnectAccountId String
+  amountCents            Int
+  status                 String
+  createdAt              DateTime @default(now())
+}
+
+model PlatformFee {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  amountCents Int
+  percent     Decimal
+  createdAt   DateTime @default(now())
+}
+
+model Refund {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  stripeRefundId String   @unique
+  amountCents    Int
+  reason         String?
+  initiatedById  String?
+  createdAt      DateTime @default(now())
+}
+
+model Dispute {
+  id         String    @id @default(cuid())
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id])
+  openedById String
+  reason     String
+  details    String
+  status     String    @default("OPEN")
+  adminNotes String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id])
+  reviewerId String
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  sellerId   String
+  seller     User     @relation("Reviewee", fields: [sellerId], references: [id])
+  rating     Int
+  body       String?
+  isHidden   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reporter   User         @relation("Reporter", fields: [reporterId], references: [id])
+  targetType ReportTarget
+  listingId  String?
+  listing    Listing?     @relation(fields: [listingId], references: [id])
+  userId     String?
+  user       User?        @relation("ReportedUser", fields: [userId], references: [id])
+  reviewId   String?
+  reason     ReportReason
+  details    String?
+  status     String       @default("OPEN")
+  createdAt  DateTime     @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+model StripeAccount {
+  id               String              @id @default(cuid())
+  userId           String              @unique
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeAccountId  String              @unique
+  status           StripeConnectStatus @default(NOT_CONNECTED)
+  detailsSubmitted Boolean             @default(false)
+  chargesEnabled   Boolean             @default(false)
+  payoutsEnabled   Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model LedgerEntry {
+  id                       String   @id @default(cuid())
+  orderId                  String?
+  order                    Order?   @relation(fields: [orderId], references: [id])
+  buyerId                  String?
+  sellerId                 String?
+  listingId                String?
+  itemPriceCents           Int      @default(0)
+  deliveryFeeCents         Int      @default(0)
+  enhancedDescriptionCents Int      @default(0)
+  platformCommissionCents  Int      @default(0)
+  stripePaymentId          String?
+  stripeConnectAccountId   String?
+  sellerPayoutCents        Int      @default(0)
+  refundAmountCents        Int      @default(0)
+  status                   String
+  type                     String
+  createdAt                DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type, status])
+}
+
+model EnhancedDescriptionPurchase {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id])
+  listingId             String?
+  stripePaymentIntentId String?
+  amountCents           Int
+  status                String
+  createdAt             DateTime @default(now())
+}
+
+model FeaturedListing {
+  id        String    @id @default(cuid())
+  listingId String
+  startsAt  DateTime
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model PlatformSettings {
+  id                       String             @id @default("default")
+  commissionPercent        Decimal            @default(12)
+  commissionOnDelivery     Boolean            @default(false)
+  stripeFeeTreatment       StripeFeeTreatment @default(CONNECT_DEFAULT)
+  enhancedDescriptionCents Int                @default(100)
+  deliveryFeeGoesTo        String             @default("SELLER")
+}
+
+model ProhibitedItem {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String
+  target    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}

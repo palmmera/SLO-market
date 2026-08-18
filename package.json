@@ -1,0 +1,55 @@
+{
+  "name": "slo-market",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.7.4",
+    "@prisma/client": "^6.6.0",
+    "@stripe/react-stripe-js": "^3.7.0",
+    "@stripe/stripe-js": "^7.3.0",
+    "bcryptjs": "^3.0.2",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.503.0",
+    "nanoid": "^5.1.5",
+    "next": "^15.3.2",
+    "next-auth": "^4.24.11",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sharp": "^0.34.1",
+    "prisma": "^6.6.0",
+    "slugify": "^1.6.6",
+    "stripe": "^18.1.0",
+    "tailwind-merge": "^3.2.0",
+    "tsx": "^4.19.4",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4.1.5",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "eslint": "^9.25.1",
+    "eslint-config-next": "^15.3.2",
+    "prisma": "^6.6.0",
+    "tailwindcss": "^4.1.5",
+    "typescript": "^5.8.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

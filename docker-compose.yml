@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: slo
+      POSTGRES_PASSWORD: slo
+      POSTGRES_DB: slo_market
+    ports:
+      - "5432:5432"
+    volumes:
+      - slo_pg:/var/lib/postgresql/data
+
+volumes:
+  slo_pg:
