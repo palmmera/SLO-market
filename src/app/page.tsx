@@ -8,31 +8,42 @@ import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 
 export default async function HomePage() {
-  const [categories, cities, recent, produce, free, featured] = await Promise.all([
-    prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
-    getActiveListings({}, 8),
-    prisma.listing.findMany({
-      where: { status: ListingStatus.ACTIVE, category: { isProduce: true } },
-      include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { publishedAt: "desc" },
-      take: 8,
-    }),
-    getActiveListings({ listingType: ListingType.FREE }, 8),
-    prisma.listing.findMany({
-      where: { status: ListingStatus.ACTIVE, isFeatured: true },
-      include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { publishedAt: "desc" },
-      take: 8,
-    }),
-  ]);
+  let categories: Awaited<ReturnType<typeof prisma.category.findMany>> = [];
+  let cities: Awaited<ReturnType<typeof prisma.city.findMany>> = [];
+  let recent: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let produce: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let free: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let featured: Awaited<ReturnType<typeof getActiveListings>> = [];
+  let popular: Awaited<ReturnType<typeof getActiveListings>> = [];
 
-  const popular = await prisma.listing.findMany({
-    where: { status: ListingStatus.ACTIVE },
-    include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-    orderBy: [{ favoriteCount: "desc" }, { viewCount: "desc" }],
-    take: 8,
-  });
+  try {
+    [categories, cities, recent, produce, free, featured, popular] = await Promise.all([
+      prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
+      prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+      getActiveListings({}, 8),
+      prisma.listing.findMany({
+        where: { status: ListingStatus.ACTIVE, category: { isProduce: true } },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { publishedAt: "desc" },
+        take: 8,
+      }),
+      getActiveListings({ listingType: ListingType.FREE }, 8),
+      prisma.listing.findMany({
+        where: { status: ListingStatus.ACTIVE, isFeatured: true },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { publishedAt: "desc" },
+        take: 8,
+      }),
+      prisma.listing.findMany({
+        where: { status: ListingStatus.ACTIVE },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: [{ favoriteCount: "desc" }, { viewCount: "desc" }],
+        take: 8,
+      }),
+    ]);
+  } catch (error) {
+    console.error("Homepage database unavailable:", error);
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
