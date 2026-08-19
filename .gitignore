@@ -14,6 +14,6 @@ prisma/*.db-journal
 dev.db
 *.db
 *.db-journal
-.vercel
 tsconfig.tsbuildinfo
-SLO-market
+.vercel
+render.yaml.bak

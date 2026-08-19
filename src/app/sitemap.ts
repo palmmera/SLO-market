@@ -11,10 +11,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily" as const,
   }));
 
-  if (!process.env.DATABASE_URL) {
-    return staticEntries;
-  }
-
   try {
     const [cities, categories, listings] = await Promise.all([
       prisma.city.findMany({ where: { isActive: true } }),
