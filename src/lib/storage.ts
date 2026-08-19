@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import os from "os";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
 
@@ -20,16 +21,45 @@ export function assertImageFile(file: File) {
   }
 }
 
-function uploadRoot() {
-  return path.resolve(process.env.UPLOAD_DIR || "./uploads");
+let cachedRoot: string | null = null;
+
+/** Render's /data path is not writable unless a disk is mounted there. */
+function isUnusableUploadDir(value: string) {
+  return value === "/data/uploads" || value === "/data" || value.startsWith("/data/");
+}
+
+export function getUploadRoot() {
+  if (cachedRoot) return cachedRoot;
+
+  const configured = process.env.UPLOAD_DIR?.trim();
+  if (configured && !isUnusableUploadDir(configured)) {
+    cachedRoot = path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
+  } else {
+    cachedRoot = path.join(process.cwd(), "uploads");
+  }
+
+  return cachedRoot;
+}
+
+async function ensureDir(dir: string) {
+  try {
+    await mkdir(dir, { recursive: true });
+    return dir;
+  } catch {
+    const fallbackRoot = path.join(os.tmpdir(), "slo-market-uploads");
+    const relative = path.relative(getUploadRoot(), dir);
+    const fallbackDir = path.join(fallbackRoot, relative);
+    await mkdir(fallbackDir, { recursive: true });
+    cachedRoot = fallbackRoot;
+    return fallbackDir;
+  }
 }
 
 export async function saveListingImage(file: File, preserveOriginal = false) {
   assertImageFile(file);
   const buffer = Buffer.from(await file.arrayBuffer());
   const id = nanoid(12);
-  const dir = path.join(uploadRoot(), "listings");
-  await mkdir(dir, { recursive: true });
+  const dir = await ensureDir(path.join(getUploadRoot(), "listings"));
 
   const originalName = `${id}-original.jpg`;
   const displayName = `${id}.jpg`;
@@ -67,8 +97,7 @@ export async function saveProfileImage(file: File) {
   assertImageFile(file);
   const buffer = Buffer.from(await file.arrayBuffer());
   const id = nanoid(10);
-  const dir = path.join(uploadRoot(), "profiles");
-  await mkdir(dir, { recursive: true });
+  const dir = await ensureDir(path.join(getUploadRoot(), "profiles"));
   const name = `${id}.jpg`;
   const out = await sharp(buffer, { failOn: "none" })
     .rotate()

@@ -23,7 +23,7 @@ services:
       - key: APP_URL
         sync: false
       - key: UPLOAD_DIR
-        value: /opt/render/project/src/uploads
+        value: uploads
       - key: STORAGE_PROVIDER
         value: local
       - key: ADMIN_EMAIL

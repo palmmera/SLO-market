@@ -5,8 +5,8 @@ dist
 .env
 .env.local
 .env*.local
-uploads
-public/uploads
+/uploads
+/public/uploads
 *.log
 .DS_Store
 prisma/*.db
