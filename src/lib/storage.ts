@@ -4,6 +4,10 @@ import os from "os";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
 
+if (!process.env.UPLOAD_DIR || process.env.UPLOAD_DIR.startsWith("/data")) {
+  process.env.UPLOAD_DIR = "uploads";
+}
+
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 const MAX_BYTES = 15 * 1024 * 1024;
 
