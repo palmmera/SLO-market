@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma, safeDb } from "@/lib/db";
 import { searchListings } from "@/lib/listings";
 import { ListingGrid } from "@/components/listing-card";
 import { SearchHero } from "@/components/search-hero";
@@ -20,24 +20,31 @@ export default async function BrowsePage({
   const max = sp.max ? Number(sp.max) * 100 : undefined;
 
   const [categories, cities, category, city] = await Promise.all([
-    prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" }, include: { children: true } }),
-    prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
-    categorySlug ? prisma.category.findUnique({ where: { slug: categorySlug } }) : null,
-    citySlug ? prisma.city.findUnique({ where: { slug: citySlug } }) : null,
+    safeDb(
+      () => prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" }, include: { children: true } }),
+      [],
+    ),
+    safeDb(() => prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }), []),
+    categorySlug ? safeDb(() => prisma.category.findUnique({ where: { slug: categorySlug } }), null) : null,
+    citySlug ? safeDb(() => prisma.city.findUnique({ where: { slug: citySlug } }), null) : null,
   ]);
 
-  const { items, total } = await searchListings({
-    q,
-    categoryId: category?.id,
-    cityId: city?.id,
-    minPrice: Number.isFinite(min) ? min : undefined,
-    maxPrice: Number.isFinite(max) ? max : undefined,
-    condition: condition || undefined,
-    listingType: listingType || undefined,
-    fulfillment: fulfillment || undefined,
-    sort,
-    take: 48,
-  });
+  const { items, total } = await safeDb(
+    () =>
+      searchListings({
+        q,
+        categoryId: category?.id,
+        cityId: city?.id,
+        minPrice: Number.isFinite(min) ? min : undefined,
+        maxPrice: Number.isFinite(max) ? max : undefined,
+        condition: condition || undefined,
+        listingType: listingType || undefined,
+        fulfillment: fulfillment || undefined,
+        sort,
+        take: 48,
+      }),
+    { items: [], total: 0 },
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">

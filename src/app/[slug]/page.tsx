@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { prisma, safeDb } from "@/lib/db";
 import { ListingGrid } from "@/components/listing-card";
 import { ListingStatus } from "@prisma/client";
 import { RESERVED_PATHS } from "@/lib/constants";
@@ -7,11 +7,11 @@ import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const city = await prisma.city.findUnique({ where: { slug } });
+  const city = await safeDb(() => prisma.city.findUnique({ where: { slug } }), null);
   if (city) {
     return { title: city.seoTitle || `${city.name} Marketplace`, description: city.seoDescription || undefined };
   }
-  const category = await prisma.category.findUnique({ where: { slug } });
+  const category = await safeDb(() => prisma.category.findUnique({ where: { slug } }), null);
   if (category) {
     return { title: category.seoTitle || category.name, description: category.seoDescription || undefined };
   }
@@ -22,14 +22,18 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
   const { slug } = await params;
   if (RESERVED_PATHS.has(slug)) notFound();
 
-  const city = await prisma.city.findUnique({ where: { slug } });
+  const city = await safeDb(() => prisma.city.findUnique({ where: { slug } }), null);
   if (city) {
-    const listings = await prisma.listing.findMany({
-      where: { status: ListingStatus.ACTIVE, cityId: city.id },
-      include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { publishedAt: "desc" },
-      take: 48,
-    });
+    const listings = await safeDb(
+      () =>
+        prisma.listing.findMany({
+          where: { status: ListingStatus.ACTIVE, cityId: city.id },
+          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          orderBy: { publishedAt: "desc" },
+          take: 48,
+        }),
+      [],
+    );
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
         <p className="text-xs uppercase tracking-[0.2em] text-ocean">San Luis Obispo County</p>
@@ -42,22 +46,26 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
     );
   }
 
-  const category = await prisma.category.findUnique({
-    where: { slug },
-    include: { children: true },
-  });
+  const category = await safeDb(
+    () => prisma.category.findUnique({ where: { slug }, include: { children: true } }),
+    null,
+  );
   if (!category) notFound();
 
   const ids = [category.id, ...category.children.map((c) => c.id)];
-  const listings = await prisma.listing.findMany({
-    where: {
-      status: ListingStatus.ACTIVE,
-      ...(category.isFree ? { listingType: "FREE" } : { categoryId: { in: ids } }),
-    },
-    include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-    orderBy: { publishedAt: "desc" },
-    take: 48,
-  });
+  const listings = await safeDb(
+    () =>
+      prisma.listing.findMany({
+        where: {
+          status: ListingStatus.ACTIVE,
+          ...(category.isFree ? { listingType: "FREE" } : { categoryId: { in: ids } }),
+        },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { publishedAt: "desc" },
+        take: 48,
+      }),
+    [],
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
