@@ -115,9 +115,9 @@ export default async function AdminPage() {
           <label className="text-sm">
             Stripe fee treatment
             <select name="stripeFeeTreatment" defaultValue={settings?.stripeFeeTreatment} className="mt-1 w-full rounded-xl bg-sand px-3 py-2">
-              <option value="CONNECT_DEFAULT">Connect default (do not hard-code Stripe fees)</option>
-              <option value="DEDUCT_FROM_SELLER">Deduct Stripe fees from seller proceeds</option>
-              <option value="ABSORB_BY_PLATFORM">SLO Market absorbs Stripe fees</option>
+              <option value="CONNECT_DEFAULT">Stripe handles pricing (recommended — seller pays Stripe card fees; no $2/MAA)</option>
+              <option value="DEDUCT_FROM_SELLER">Same as above (seller pays Stripe card fees via Connect)</option>
+              <option value="ABSORB_BY_PLATFORM">Not available with Stripe-handles-pricing direct charges</option>
             </select>
           </label>
           <label className="flex items-center gap-2 text-sm">

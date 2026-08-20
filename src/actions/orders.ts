@@ -4,7 +4,7 @@ import { FulfillmentMethod, ListingStatus, OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { calculateFees, getPlatformSettings } from "@/lib/fees";
-import { getStripe, stripeConfigured } from "@/lib/stripe";
+import { connectedAccountCreateParams, getStripe, stripeConfigured } from "@/lib/stripe";
 import { orderNumber } from "@/lib/slug";
 import { absoluteUrl } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
@@ -93,41 +93,45 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
     },
   });
 
+  // Direct charge on the connected account (Stripe-Account header).
+  // Stripe bills payment-processing fees to the seller; platform takes application_fee only.
   const stripe = getStripe();
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: buyer.email,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: listing.priceCents,
-          product_data: { name: listing.title },
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      customer_email: buyer.email,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: listing.priceCents,
+            product_data: { name: listing.title },
+          },
         },
-      },
-      ...(deliveryFeeCents
-        ? [
-            {
-              quantity: 1,
-              price_data: {
-                currency: "usd",
-                unit_amount: deliveryFeeCents,
-                product_data: { name: "Local delivery" },
+        ...(deliveryFeeCents
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: "usd",
+                  unit_amount: deliveryFeeCents,
+                  product_data: { name: "Local delivery" },
+                },
               },
-            },
-          ]
-        : []),
-    ],
-    payment_intent_data: {
-      application_fee_amount: fees.platformFeeCents,
-      transfer_data: { destination: connect.stripeAccountId },
+            ]
+          : []),
+      ],
+      payment_intent_data: {
+        application_fee_amount: fees.platformFeeCents,
+        metadata: { orderId: order.id, type: "marketplace_sale" },
+      },
       metadata: { orderId: order.id, type: "marketplace_sale" },
+      success_url: absoluteUrl(`/orders/${order.id}?paid=1`),
+      cancel_url: absoluteUrl(`/listing/${listing.slug}?checkout=cancelled`),
     },
-    metadata: { orderId: order.id, type: "marketplace_sale" },
-    success_url: absoluteUrl(`/orders/${order.id}?paid=1`),
-    cancel_url: absoluteUrl(`/listing/${listing.slug}?checkout=cancelled`),
-  });
+    { stripeAccount: connect.stripeAccountId },
+  );
 
   await prisma.order.update({
     where: { id: order.id },
@@ -143,13 +147,10 @@ export async function connectStripeAccount() {
   const stripe = getStripe();
   let record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   if (!record) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "US",
-      email: user.email,
-      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-      metadata: { userId: user.id },
-    });
+    // Stripe-handles-pricing Express-style account (no $2/MAA Connect account fee).
+    const account = await stripe.accounts.create(
+      connectedAccountCreateParams({ email: user.email, userId: user.id }),
+    );
     record = await prisma.stripeAccount.create({
       data: {
         userId: user.id,
@@ -237,15 +238,26 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
 
 export async function refundOrder(orderId: string, reason?: string) {
   const user = await currentUser();
-  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { payment: true } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { payment: true, seller: { include: { stripeAccount: true } } },
+  });
   if (!order) throw new Error("Order not found.");
   if (user.role !== "ADMIN" && user.id !== order.sellerId) throw new Error("Not allowed.");
   if (!order.stripePaymentIntentId) throw new Error("No Stripe payment to refund.");
+  const connectAccountId = order.seller.stripeAccount?.stripeAccountId;
+  if (!connectAccountId) throw new Error("Seller Stripe account is missing for this refund.");
+
+  // Direct-charge refunds must be created on the connected account; return the application fee too.
   const stripe = getStripe();
-  const refund = await stripe.refunds.create({
-    payment_intent: order.stripePaymentIntentId,
-    reason: "requested_by_customer",
-  });
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: order.stripePaymentIntentId,
+      reason: "requested_by_customer",
+      refund_application_fee: true,
+    },
+    { stripeAccount: connectAccountId },
+  );
   await prisma.refund.create({
     data: {
       orderId,
@@ -265,6 +277,7 @@ export async function refundOrder(orderId: string, reason?: string) {
       deliveryFeeCents: order.deliveryFeeCents,
       platformCommissionCents: order.platformFeeCents,
       stripePaymentId: order.stripePaymentIntentId,
+      stripeConnectAccountId: connectAccountId,
       refundAmountCents: refund.amount,
       sellerPayoutCents: 0,
       status: "REFUNDED",

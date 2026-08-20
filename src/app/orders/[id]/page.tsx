@@ -49,7 +49,7 @@ export default async function OrderPage({
           <div>Delivery: {order.deliveryFeeCents ? formatMoney(order.deliveryFeeCents) : "None"}</div>
           <div>Total paid: {formatMoney(order.totalCents)}</div>
           <div>SLO Market commission: {formatMoney(order.platformFeeCents)}</div>
-          <div>Seller proceeds: {formatMoney(order.sellerPayoutCents)}</div>
+          <div>Seller proceeds (before Stripe card fees): {formatMoney(order.sellerPayoutCents)}</div>
         </div>
         <p className="text-xs text-muted">{stripeFeeCopy(settings.stripeFeeTreatment)}</p>
       </div>

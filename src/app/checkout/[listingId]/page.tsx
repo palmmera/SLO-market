@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CheckoutForm } from "@/components/checkout-form";
-import { getPlatformSettings, stripeFeeCopy } from "@/lib/fees";
+import { getPlatformSettings, marketplaceCommissionCopy, stripeFeeCopy } from "@/lib/fees";
 import { ListingStatus } from "@prisma/client";
 
 export default async function CheckoutPage({ params }: { params: Promise<{ listingId: string }> }) {
@@ -29,7 +29,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ listi
         payoutsEnabled={listing.seller.stripeAccount?.status === "PAYOUTS_ENABLED"}
       />
       <p className="mt-4 text-xs text-muted">
-        SLO Market collects a 12% platform commission on the item price through Stripe Connect. Delivery fees are {settings.commissionOnDelivery ? "included in" : "not included in"} the commission base. {stripeFeeCopy(settings.stripeFeeTreatment)} Card numbers never touch SLO Market servers.
+        {marketplaceCommissionCopy(settings.commissionPercent, settings.commissionOnDelivery)}{" "}
+        {stripeFeeCopy(settings.stripeFeeTreatment)} Card numbers never touch SLO Market servers.
       </p>
     </div>
   );

@@ -25,10 +25,10 @@
     "lucide-react": "^0.503.0",
     "nanoid": "^5.1.5",
     "next": "^15.3.2",
-    "next-auth": "^4.24.11",
+    "next-auth": "^4.24.15",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "sharp": "^0.34.1",
+    "sharp": "^0.35.3",
     "prisma": "^6.6.0",
     "slugify": "^1.6.6",
     "stripe": "^18.1.0",
@@ -51,5 +51,12 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "@auth/core": "0.41.3",
+    "cookie": "^0.7.2",
+    "deepmerge-ts": "^8.0.1",
+    "postcss": "^8.5.26",
+    "sharp": "$sharp"
   }
 }

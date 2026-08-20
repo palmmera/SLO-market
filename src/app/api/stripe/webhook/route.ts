@@ -160,7 +160,7 @@ async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) {
         orderId: order.id,
         stripeConnectAccountId: order.seller.stripeAccount.stripeAccountId,
         amountCents: order.sellerPayoutCents,
-        status: "created_via_destination_charge",
+        status: "created_via_direct_charge",
       },
     });
   }

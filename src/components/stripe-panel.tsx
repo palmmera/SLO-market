@@ -19,7 +19,9 @@ export function StripeConnectPanel({
   return (
     <div className="rounded-3xl bg-white p-6 card-shadow">
       <h1 className="font-display text-3xl">Get Paid Through SLO Market</h1>
-      <p className="mt-2 text-sm text-muted">Connect Stripe, complete verification, then payouts can be enabled. SLO Market never stores card numbers.</p>
+      <p className="mt-2 text-sm text-muted">
+        Connect a free Stripe Express account to receive payouts. Listings stay free—SLO Market only takes a 12% commission on completed sales. Stripe bills its own card-processing fees to your connected account; SLO Market does not charge monthly seller fees.
+      </p>
       <div className="mt-5 rounded-2xl bg-sand p-4">
         <div className="text-sm font-semibold">Stripe status: {stripeStatusLabel(status)}</div>
         <ul className="mt-2 text-sm text-muted">

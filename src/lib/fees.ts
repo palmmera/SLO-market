@@ -6,6 +6,7 @@ export type FeeBreakdown = {
   deliveryFeeCents: number;
   commissionPercent: number;
   platformFeeCents: number;
+  /** Seller share before Stripe's card-processing fees (Stripe deducts those from the connected account). */
   sellerPayoutCents: number;
   totalCents: number;
   commissionOnDelivery: boolean;
@@ -62,11 +63,16 @@ export function calculateFees(input: {
 }
 
 export function stripeFeeCopy(treatment: FeeBreakdown["stripeFeeTreatment"]) {
-  if (treatment === "DEDUCT_FROM_SELLER") {
-    return "Stripe processing fees are deducted from seller proceeds according to Stripe Connect.";
-  }
   if (treatment === "ABSORB_BY_PLATFORM") {
-    return "SLO Market absorbs Stripe processing fees. They are not deducted from the seller’s item proceeds.";
+    return "Note: under Stripe-handles-pricing direct charges, Stripe bills card-processing fees to the seller’s connected account; the platform cannot absorb those Stripe fees in this Connect model.";
   }
-  return "Stripe processing fees follow the configured Stripe Connect payment structure and are not hard-coded by SLO Market.";
+  // CONNECT_DEFAULT and DEDUCT_FROM_SELLER both match Stripe-handles-pricing behavior.
+  return "Stripe card-processing fees are billed by Stripe to the seller’s connected account (Stripe handles pricing). SLO Market only collects its marketplace commission as an application fee—there is no $2/month Connect account fee on this model.";
+}
+
+export function marketplaceCommissionCopy(commissionPercent: number | Decimal, commissionOnDelivery: boolean) {
+  const pct = Number(commissionPercent);
+  return `SLO Market collects a ${pct}% marketplace commission on the item price through Stripe Connect application fees. Listings are free—there are no monthly seller or buyer fees. Delivery fees are ${
+    commissionOnDelivery ? "included in" : "not included in"
+  } the commission base.`;
 }
