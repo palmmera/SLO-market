@@ -43,6 +43,6 @@ services:
 
 databases:
   - name: slo-market-db
-    plan: starter
-    postgresMajorVersion: 16
+    plan: basic-256mb
+    postgresMajorVersion: "16"
     region: oregon
