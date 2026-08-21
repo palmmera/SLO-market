@@ -208,8 +208,14 @@ export async function openStripeDashboard() {
   const user = await currentUser();
   const record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   if (!record) throw new Error("Connect Stripe first.");
-  const link = await getStripe().accounts.createLoginLink(record.stripeAccountId);
-  return link.url;
+  try {
+    // Login links only work for Express-dashboard accounts (legacy).
+    const link = await getStripe().accounts.createLoginLink(record.stripeAccountId);
+    return link.url;
+  } catch {
+    // Standard-type accounts sign in to the full Stripe Dashboard directly.
+    return "https://dashboard.stripe.com";
+  }
 }
 
 export async function deleteStripeAccount() {

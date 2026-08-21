@@ -6,15 +6,18 @@ import Stripe from "stripe";
  * - Pricing model: "Stripe handles pricing" (not "You handle pricing")
  * - Why: avoids the $2 / monthly active connected account fee and payout Connect fees
  *   that apply when the platform is responsible for Stripe's payment pricing
- * - Connected accounts: Express Dashboard UX via controller properties
- *   (`controller.fees.payer = account`, Stripe collects processing fees from sellers)
+ * - Connected accounts: Standard-type via controller properties (full Stripe
+ *   dashboard, `controller.fees.payer = account`, Stripe collects processing fees
+ *   from sellers, Stripe absorbs negative balances)
  * - Charge type: Direct charges on the connected account (`Stripe-Account` header)
  * - Platform monetization: `application_fee_amount` = marketplace commission (default 12%)
- * - Liability: Stripe absorbs negative balances (`controller.losses.payments = stripe`).
- *   Stripe requires this pairing: on Express accounts, `fees.payer = account` is only
- *   allowed with `losses.payments = stripe` (API version 2026-06-24 "dahlia" or later).
- *   Using `losses.payments = application` here fails with: "When
- *   stripe_dashboard[type]=express, your platform must collect fees and be liable...".
+ * - Why not Express: Stripe rejects `stripe_dashboard.type = express` with
+ *   `fees.payer = account` on this platform ("your platform must collect fees and be
+ *   liable for negative balances or refunds and chargebacks") — verified against the
+ *   live account on API version 2026-07-29.dahlia. Express would force platform-paid
+ *   processing fees plus the $2/monthly-active-account Connect fee.
+ * - Sellers manage payouts at https://dashboard.stripe.com (login links are
+ *   Express-only, so `accounts.createLoginLink` does not work for these accounts)
  * - No seller subscription / monthly platform / listing fee for Connect itself
  *
  * Do not use destination charges for marketplace sales under this configuration —
@@ -22,7 +25,7 @@ import Stripe from "stripe";
  */
 export const STRIPE_CONNECT = {
   pricingModel: "stripe_handles_pricing",
-  accountDashboard: "express",
+  accountDashboard: "full",
   chargeType: "direct",
   feesPayer: "account",
   lossesPayments: "stripe",
@@ -71,7 +74,7 @@ export function connectedAccountCreateParams(input: {
       fees: { payer: "account" },
       losses: { payments: "stripe" },
       requirement_collection: "stripe",
-      stripe_dashboard: { type: "express" },
+      stripe_dashboard: { type: "full" },
     },
     capabilities: {
       card_payments: { requested: true },
