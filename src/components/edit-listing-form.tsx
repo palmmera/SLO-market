@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateListing } from "@/actions/listings";
+import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean };
@@ -30,10 +31,14 @@ export function EditListingForm({
   categories,
   cities,
   listing,
+  stripeReady = true,
+  isDraft = false,
 }: {
   categories: Option[];
   cities: Option[];
   listing: EditListingInitial;
+  stripeReady?: boolean;
+  isDraft?: boolean;
 }) {
   const router = useRouter();
   const parents = categories.filter((c) => !c.parentId);
@@ -75,6 +80,14 @@ export function EditListingForm({
         start(async () => {
           try {
             const result = await updateListing(listing.id, form);
+            if (result.needsStripeOnboarding) {
+              const url = await connectStripeAccount({
+                returnPath: `/dashboard/listings/${listing.id}/edit?stripe=return`,
+                refreshPath: `/dashboard/listings/${listing.id}/edit?stripe=refresh`,
+              });
+              window.location.href = url;
+              return;
+            }
             router.push(`/listing/${result.slug}`);
             router.refresh();
           } catch (err) {
@@ -311,7 +324,15 @@ export function EditListingForm({
 
       {error && <p className="text-sm text-clay">{error}</p>}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">
-        {pending ? "Saving..." : "Save changes"}
+        {pending
+          ? isDraft && !stripeReady
+            ? "Taking you to Stripe..."
+            : "Saving..."
+          : isDraft && !stripeReady
+            ? "Finish Stripe to publish"
+            : isDraft
+              ? "Publish listing"
+              : "Save changes"}
       </button>
     </form>
   );

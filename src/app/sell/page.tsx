@@ -14,10 +14,16 @@ export default async function SellPage() {
     prisma.user.findUnique({ where: { id: session.user.id }, include: { stripeAccount: true } }),
   ]);
 
+  const stripeReady =
+    user?.stripeAccount?.status === "PAYOUTS_ENABLED" && Boolean(user.stripeAccount.payoutsEnabled);
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="font-display text-4xl">Sell Something</h1>
-      <p className="mt-2 text-muted">Create a free listing in a few minutes. No monthly seller fees—SLO Market takes 12% only when an item sells. Your city is shown publicly, not your address.</p>
+      <p className="mt-2 text-muted">
+        Create a free listing in a few minutes. No monthly seller fees—SLO Market takes 12% only when an item sells. Your
+        city is shown publicly, not your address.
+      </p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <Link href="/sell" className="rounded-2xl bg-ocean px-4 py-3 text-center font-semibold text-white">
           List an item
@@ -26,16 +32,21 @@ export default async function SellPage() {
           Garage sale photo
         </Link>
       </div>
-      {user?.stripeAccount?.status !== "PAYOUTS_ENABLED" && (
+      {!stripeReady && (
         <div className="mt-4 rounded-2xl bg-gold/20 p-4 text-sm">
-          Connect Stripe to get paid through SLO Market.{" "}
+          Fill in your listing below. When you publish, you’ll connect Stripe so buyers can pay you through SLO Market.{" "}
           <Link href="/dashboard/stripe" className="font-semibold text-ocean">
-            Get Paid Through SLO Market
+            Manage Stripe
           </Link>
         </div>
       )}
       <div className="mt-6">
-        <SellForm categories={categories} cities={cities} defaultCityId={user?.cityId || cities[0]?.id} />
+        <SellForm
+          categories={categories}
+          cities={cities}
+          defaultCityId={user?.cityId || cities[0]?.id}
+          stripeReady={stripeReady}
+        />
       </div>
     </div>
   );

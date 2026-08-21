@@ -62,6 +62,11 @@ export async function saveHotspotItem(input: {
   listingId?: string;
 }) {
   const user = await currentUser();
+  const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+  if (!stripeAccount || stripeAccount.status !== "PAYOUTS_ENABLED" || !stripeAccount.payoutsEnabled) {
+    return { needsStripeOnboarding: true as const };
+  }
+
   const collection = await prisma.collection.findFirst({
     where: { id: input.collectionId, sellerId: user.id },
     include: { city: true },
@@ -141,7 +146,7 @@ export async function saveHotspotItem(input: {
   });
 
   revalidatePath(`/collection/${collection.slug}`);
-  return { listingId: listing.id, slug: listing.slug };
+  return { listingId: listing.id, slug: listing.slug, needsStripeOnboarding: false as const };
 }
 
 export async function deleteHotspotItem(listingId: string) {

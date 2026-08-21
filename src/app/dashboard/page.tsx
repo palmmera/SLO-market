@@ -10,9 +10,14 @@ export default async function SellerDashboard() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const [active, sold, pending, completed, stripe, sales, enhanced] = await Promise.all([
+  const [active, drafts, sold, pending, completed, stripe, sales, enhanced] = await Promise.all([
     prisma.listing.findMany({
       where: { sellerId: userId, status: ListingStatus.ACTIVE },
+      include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.listing.findMany({
+      where: { sellerId: userId, status: ListingStatus.DRAFT },
       include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
       orderBy: { createdAt: "desc" },
     }),
@@ -54,6 +59,35 @@ export default async function SellerDashboard() {
           </Link>
         ))}
       </Section>
+      {drafts.length > 0 && (
+        <Section title="Drafts — finish Stripe to publish">
+          <div className="grid gap-2">
+            {drafts.map((l) => {
+              const image = l.images[0]?.thumbnailUrl || l.images[0]?.url;
+              return (
+                <Link
+                  key={l.id}
+                  href={`/dashboard/listings/${l.id}/edit`}
+                  className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow"
+                >
+                  <div className="shrink-0 overflow-hidden rounded-xl bg-sand-dark">
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt="" className="h-16 w-16 object-cover" />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center text-[10px] text-muted">No photo</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold">{l.title}</div>
+                    <p className="mt-0.5 text-xs text-muted">Saved as draft — continue to publish</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </Section>
+      )}
       <Section title="Active Listings">
         {active.length === 0 && <Empty />}
         <div className="grid gap-2">

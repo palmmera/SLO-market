@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveHotspotItem, deleteHotspotItem, markHotspotSold } from "@/actions/hotspots";
+import { connectStripeAccount } from "@/actions/orders";
 import { HOTSPOT_CONDITIONS } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
 
@@ -245,6 +246,15 @@ export function HotspotEditor({
                 extra,
                 listingId: editing?.listingId,
               });
+              if ("needsStripeOnboarding" in saved && saved.needsStripeOnboarding) {
+                const url = await connectStripeAccount({
+                  returnPath: `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}&stripe=return`,
+                  refreshPath: `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}&stripe=refresh`,
+                });
+                window.location.href = url;
+                return;
+              }
+              if (!("listingId" in saved) || !saved.listingId || !saved.slug) return;
               const next: Item = {
                 listingId: saved.listingId,
                 slug: saved.slug,

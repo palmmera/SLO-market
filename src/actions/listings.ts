@@ -21,6 +21,10 @@ async function currentUser() {
 
 export async function createListing(formData: FormData) {
   const user = await currentUser();
+  const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+  const stripeReady =
+    Boolean(stripeAccount) && stripeAccount!.status === "PAYOUTS_ENABLED" && Boolean(stripeAccount!.payoutsEnabled);
+
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const categoryId = String(formData.get("categoryId") || "");
@@ -52,7 +56,7 @@ export async function createListing(formData: FormData) {
       listingType,
       condition: listingType === "WANTED" ? null : condition,
       priceCents,
-      status: ListingStatus.ACTIVE,
+      status: stripeReady ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
       sellerId: user.id,
       categoryId,
       cityId,
@@ -71,7 +75,7 @@ export async function createListing(formData: FormData) {
         : undefined,
       seoTitle,
       seoDescription,
-      publishedAt: new Date(),
+      publishedAt: stripeReady ? new Date() : null,
     },
   });
 
@@ -91,13 +95,32 @@ export async function createListing(formData: FormData) {
     });
   }
 
+  if (!stripeReady) {
+    return {
+      listingId: listing.id,
+      slug: listing.slug,
+      needsStripeOnboarding: true as const,
+      needsEnhancedPayment: false as const,
+    };
+  }
+
   if (enhanced) {
-    return { listingId: listing.id, slug: listing.slug, needsEnhancedPayment: true };
+    return {
+      listingId: listing.id,
+      slug: listing.slug,
+      needsEnhancedPayment: true as const,
+      needsStripeOnboarding: false as const,
+    };
   }
 
   revalidatePath("/");
   revalidatePath("/browse");
-  return { listingId: listing.id, slug: listing.slug, needsEnhancedPayment: false };
+  return {
+    listingId: listing.id,
+    slug: listing.slug,
+    needsEnhancedPayment: false as const,
+    needsStripeOnboarding: false as const,
+  };
 }
 
 export async function startEnhancedDescriptionCheckout(listingId: string) {
@@ -189,6 +212,12 @@ export async function updateListing(listingId: string, formData: FormData) {
   const seoTitle = `${title} in ${city.name} | SLO Market`;
   const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
 
+  const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+  const stripeReady =
+    Boolean(stripeAccount) && stripeAccount!.status === "PAYOUTS_ENABLED" && Boolean(stripeAccount!.payoutsEnabled);
+  const shouldPublishDraft = existing.status === ListingStatus.DRAFT && stripeReady;
+  const needsStripeOnboarding = existing.status === ListingStatus.DRAFT && !stripeReady;
+
   const listing = await prisma.listing.update({
     where: { id: listingId },
     data: {
@@ -205,13 +234,13 @@ export async function updateListing(listingId: string, formData: FormData) {
       freeDelivery: fulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
       seoTitle,
       seoDescription,
+      ...(shouldPublishDraft
+        ? { status: ListingStatus.ACTIVE, publishedAt: existing.publishedAt ?? new Date() }
+        : {}),
     },
   });
 
-  const removeImageIds = formData
-    .getAll("removeImageIds")
-    .map(String)
-    .filter(Boolean);
+  const removeImageIds = formData.getAll("removeImageIds").map(String).filter(Boolean);
   if (removeImageIds.length) {
     await prisma.listingImage.deleteMany({
       where: { listingId, id: { in: removeImageIds } },
@@ -219,7 +248,10 @@ export async function updateListing(listingId: string, formData: FormData) {
   }
 
   const remaining = await prisma.listingImage.count({ where: { listingId } });
-  const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0).slice(0, Math.max(0, 10 - remaining));
+  const files = formData
+    .getAll("photos")
+    .filter((f): f is File => f instanceof File && f.size > 0)
+    .slice(0, Math.max(0, 10 - remaining));
   for (const [index, file] of files.entries()) {
     const saved = await saveListingImage(file);
     await prisma.listingImage.create({
@@ -235,15 +267,19 @@ export async function updateListing(listingId: string, formData: FormData) {
     });
   }
 
-  if (priceChanged) {
+  if (priceChanged && listing.status === ListingStatus.ACTIVE) {
     await notifyFavoritesListingChange(listingId, "PRICE_CHANGE", "Price update", `${listing.title} now costs a different amount.`);
+  }
+
+  if (needsStripeOnboarding) {
+    return { listingId: listing.id, slug: listing.slug, needsStripeOnboarding: true as const };
   }
 
   revalidatePath("/");
   revalidatePath("/browse");
   revalidatePath("/dashboard");
   revalidatePath(`/listing/${listing.slug}`);
-  return { listingId: listing.id, slug: listing.slug };
+  return { listingId: listing.id, slug: listing.slug, needsStripeOnboarding: false as const };
 }
 
 export async function updateListingPrice(listingId: string, priceCents: number) {
@@ -327,6 +363,16 @@ export async function sendMessage(conversationId: string, body: string) {
     body: `${user.name}: ${body.slice(0, 80)}`,
     link: `/messages/${conversationId}`,
   });
+}
+
+export async function deleteConversation(conversationId: string) {
+  const user = await currentUser();
+  const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
+  if (!conversation || (conversation.buyerId !== user.id && conversation.sellerId !== user.id)) {
+    throw new Error("Conversation not found.");
+  }
+  await prisma.conversation.delete({ where: { id: conversationId } });
+  revalidatePath("/messages");
 }
 
 export async function reportContent(formData: FormData) {

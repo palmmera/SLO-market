@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createListing, startEnhancedDescriptionCheckout } from "@/actions/listings";
+import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean };
@@ -11,10 +12,12 @@ export function SellForm({
   categories,
   cities,
   defaultCityId,
+  stripeReady = false,
 }: {
   categories: Option[];
   cities: Option[];
   defaultCityId?: string;
+  stripeReady?: boolean;
 }) {
   const router = useRouter();
   const parents = categories.filter((c) => !c.parentId);
@@ -41,6 +44,14 @@ export function SellForm({
         start(async () => {
           try {
             const result = await createListing(form);
+            if (result.needsStripeOnboarding) {
+              const url = await connectStripeAccount({
+                returnPath: `/dashboard/listings/${result.listingId}/edit?stripe=return`,
+                refreshPath: `/dashboard/listings/${result.listingId}/edit?stripe=refresh`,
+              });
+              window.location.href = url;
+              return;
+            }
             if (result.needsEnhancedPayment) {
               const url = await startEnhancedDescriptionCheckout(result.listingId);
               if (url) {
@@ -55,6 +66,12 @@ export function SellForm({
         });
       }}
     >
+      {!stripeReady && (
+        <p className="rounded-2xl bg-gold/20 p-4 text-sm">
+          You can fill in photos and details now. When you publish, you’ll finish connecting Stripe so you can get paid
+          through SLO Market.
+        </p>
+      )}
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">1. Photos</h2>
         <p className="text-sm text-muted">Up to 10 photos. Large, clear pictures sell faster.</p>
@@ -82,13 +99,22 @@ export function SellForm({
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">2. Title</h2>
-        <input name="title" required placeholder="What are you selling?" className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+        <input
+          name="title"
+          required
+          placeholder="What are you selling?"
+          className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+        />
       </section>
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">3. Category</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <select value={parentId} onChange={(e) => setParentId(e.target.value)} className="rounded-2xl border border-sand-dark bg-sand px-4 py-3">
+          <select
+            value={parentId}
+            onChange={(e) => setParentId(e.target.value)}
+            className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+          >
             {parents.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -105,7 +131,8 @@ export function SellForm({
         </div>
         {selectedParent?.isProduce && (
           <p className="mt-3 rounded-xl bg-ocean-light p-3 text-sm text-ocean-dark">
-            Local produce listings must follow California and SLO County rules. Do not list prohibited or unpermitted food items.
+            Local produce listings must follow California and SLO County rules. Do not list prohibited or unpermitted food
+            items.
           </p>
         )}
       </section>
@@ -131,11 +158,20 @@ export function SellForm({
         {listingType !== "WANTED" && listingType !== "FREE" && (
           <label className="mt-4 block">
             <span className="text-sm font-medium">4. Price</span>
-            <input name="price" type="number" min="1" step="0.01" required className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+            <input
+              name="price"
+              type="number"
+              min="1"
+              step="0.01"
+              required
+              className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            />
           </label>
         )}
         {listingType === "FREE" && <p className="mt-3 font-display text-2xl text-ocean">FREE</p>}
-        {listingType === "WANTED" && <p className="mt-3 text-sm text-muted">Describe what you are looking for. No price required.</p>}
+        {listingType === "WANTED" && (
+          <p className="mt-3 text-sm text-muted">Describe what you are looking for. No price required.</p>
+        )}
       </section>
 
       {listingType !== "WANTED" && (
@@ -154,22 +190,45 @@ export function SellForm({
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">6. Description</h2>
         <div className="mt-3 grid gap-3 rounded-2xl bg-sand p-3 md:grid-cols-2">
-          <button type="button" onClick={() => setEnhanced(false)} className={`rounded-2xl p-4 text-left ${!enhanced ? "bg-white ring-2 ring-ocean" : "bg-transparent"}`}>
+          <button
+            type="button"
+            onClick={() => setEnhanced(false)}
+            className={`rounded-2xl p-4 text-left ${!enhanced ? "bg-white ring-2 ring-ocean" : "bg-transparent"}`}
+          >
             <div className="font-semibold">Basic Listing</div>
             <div className="text-ocean font-bold">FREE</div>
           </button>
-          <button type="button" onClick={() => setEnhanced(true)} className={`rounded-2xl p-4 text-left ${enhanced ? "bg-white ring-2 ring-ocean" : "bg-transparent"}`}>
+          <button
+            type="button"
+            onClick={() => setEnhanced(true)}
+            className={`rounded-2xl p-4 text-left ${enhanced ? "bg-white ring-2 ring-ocean" : "bg-transparent"}`}
+          >
             <div className="font-semibold">Enhanced Description</div>
             <div className="text-ocean font-bold">$1</div>
             <p className="mt-1 text-xs text-muted">Optional. Extra details like brand, measurements, and history.</p>
           </button>
         </div>
-        <textarea name="description" required rows={5} placeholder="Tell neighbors what it is, condition, and anything they should know." className="mt-4 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+        <textarea
+          name="description"
+          required
+          rows={5}
+          placeholder="Tell neighbors what it is, condition, and anything they should know."
+          className="mt-4 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+        />
         {enhanced && (
           <div className="mt-4 grid gap-3">
             <input name="brand" placeholder="Brand" className="rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
-            <input name="measurements" placeholder="Measurements" className="rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
-            <textarea name="history" rows={3} placeholder="History or extra details" className="rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+            <input
+              name="measurements"
+              placeholder="Measurements"
+              className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            />
+            <textarea
+              name="history"
+              rows={3}
+              placeholder="History or extra details"
+              className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            />
             <textarea name="extra" rows={3} placeholder="Anything else" className="rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
           </div>
         )}
@@ -178,7 +237,12 @@ export function SellForm({
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">7. Location</h2>
         <p className="text-sm text-muted">We only show your city publicly — never your home address.</p>
-        <select name="cityId" defaultValue={defaultCityId} required className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3">
+        <select
+          name="cityId"
+          defaultValue={defaultCityId}
+          required
+          className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+        >
           {cities.map((city) => (
             <option key={city.id} value={city.id}>
               {city.name}
@@ -191,16 +255,29 @@ export function SellForm({
         <h2 className="font-semibold">8. How will the buyer receive the item?</h2>
         <div className="mt-3 grid gap-2">
           <label className={`rounded-2xl p-4 ${fulfillment === "PICKUP_ONLY" ? "bg-ocean-light" : "bg-sand"}`}>
-            <input type="radio" className="mr-2" checked={fulfillment === "PICKUP_ONLY"} onChange={() => setFulfillment("PICKUP_ONLY")} />
+            <input
+              type="radio"
+              className="mr-2"
+              checked={fulfillment === "PICKUP_ONLY"}
+              onChange={() => setFulfillment("PICKUP_ONLY")}
+            />
             Pickup Only
           </label>
           <label className={`rounded-2xl p-4 ${fulfillment === "LOCAL_DELIVERY" ? "bg-ocean-light" : "bg-sand"}`}>
-            <input type="radio" className="mr-2" checked={fulfillment === "LOCAL_DELIVERY"} onChange={() => setFulfillment("LOCAL_DELIVERY")} />
+            <input
+              type="radio"
+              className="mr-2"
+              checked={fulfillment === "LOCAL_DELIVERY"}
+              onChange={() => setFulfillment("LOCAL_DELIVERY")}
+            />
             I Can Deliver Locally
           </label>
         </div>
         {fulfillment === "PICKUP_ONLY" && (
-          <p className="mt-3 text-sm text-muted">Pickup Only. After purchase, use SLO Market messages to arrange a public meetup. Your exact address stays private.</p>
+          <p className="mt-3 text-sm text-muted">
+            Pickup Only. After purchase, use SLO Market messages to arrange a public meetup. Your exact address stays
+            private.
+          </p>
         )}
         {fulfillment === "LOCAL_DELIVERY" && (
           <div className="mt-4 grid gap-3">
@@ -215,16 +292,33 @@ export function SellForm({
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="freeDelivery" /> Free Local Delivery
             </label>
-            <input name="deliveryFee" type="number" min="0" step="0.01" placeholder="Delivery fee (leave 0 for free)" className="rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+            <input
+              name="deliveryFee"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Delivery fee (leave 0 for free)"
+              className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            />
           </div>
         )}
       </section>
 
       {error && <p className="text-sm text-clay">{error}</p>}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">
-        {pending ? "Publishing..." : "9. Publish"}
+        {pending
+          ? stripeReady
+            ? "Publishing..."
+            : "Taking you to Stripe..."
+          : stripeReady
+            ? "9. Publish"
+            : "9. Finish Stripe to publish"}
       </button>
-      <p className="text-center text-xs text-muted">Basic listings are free. Enhanced description is optional and $1.</p>
+      <p className="text-center text-xs text-muted">
+        {stripeReady
+          ? "Basic listings are free. Enhanced description is optional and $1."
+          : "Publishing requires a free Stripe account so buyers can pay you through SLO Market."}
+      </p>
     </form>
   );
 }

@@ -141,7 +141,7 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
   return session.url;
 }
 
-export async function connectStripeAccount() {
+export async function connectStripeAccount(opts?: { returnPath?: string; refreshPath?: string }) {
   const user = await currentUser();
   if (!stripeConfigured()) throw new Error("Stripe is not configured.");
   const stripe = getStripe();
@@ -159,10 +159,12 @@ export async function connectStripeAccount() {
       },
     });
   }
+  const returnPath = opts?.returnPath || "/dashboard/stripe?return=1";
+  const refreshPath = opts?.refreshPath || "/dashboard/stripe?refresh=1";
   const link = await stripe.accountLinks.create({
     account: record.stripeAccountId,
-    refresh_url: absoluteUrl("/dashboard/stripe?refresh=1"),
-    return_url: absoluteUrl("/dashboard/stripe?return=1"),
+    refresh_url: absoluteUrl(refreshPath),
+    return_url: absoluteUrl(returnPath),
     type: "account_onboarding",
   });
   return link.url;

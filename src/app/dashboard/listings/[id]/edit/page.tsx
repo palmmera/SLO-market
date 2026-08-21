@@ -4,13 +4,26 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { EditListingForm } from "@/components/edit-listing-form";
 import { ListingStatus } from "@prisma/client";
+import { refreshStripeStatus } from "@/actions/orders";
+import { revalidatePath } from "next/cache";
 
-export default async function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditListingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ stripe?: string }>;
+}) {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login?callbackUrl=/dashboard");
   const { id } = await params;
+  const sp = await searchParams;
 
-  const [listing, categories, cities] = await Promise.all([
+  if (sp.stripe === "return" || sp.stripe === "refresh") {
+    await refreshStripeStatus().catch(() => null);
+  }
+
+  const [listing, categories, cities, stripeAccount] = await Promise.all([
     prisma.listing.findFirst({
       where: {
         id,
@@ -24,21 +37,54 @@ export default async function EditListingPage({ params }: { params: Promise<{ id
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.stripeAccount.findUnique({ where: { userId: session.user.id } }),
   ]);
 
   if (!listing) notFound();
+
+  const stripeReady =
+    stripeAccount?.status === "PAYOUTS_ENABLED" && Boolean(stripeAccount.payoutsEnabled);
+
+  if (sp.stripe === "return" && stripeReady && listing.status === ListingStatus.DRAFT) {
+    await prisma.listing.update({
+      where: { id: listing.id },
+      data: { status: ListingStatus.ACTIVE, publishedAt: listing.publishedAt ?? new Date() },
+    });
+    revalidatePath("/");
+    revalidatePath("/browse");
+    revalidatePath("/dashboard");
+    redirect(`/listing/${listing.slug}`);
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <Link href="/dashboard" className="text-sm font-semibold text-ocean">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-3 font-display text-4xl">Edit listing</h1>
-      <p className="mt-2 text-muted">Update your photos, details, price, and delivery options.</p>
+      <h1 className="mt-3 font-display text-4xl">
+        {listing.status === ListingStatus.DRAFT ? "Finish listing" : "Edit listing"}
+      </h1>
+      <p className="mt-2 text-muted">
+        {listing.status === ListingStatus.DRAFT
+          ? "Your details are saved as a draft. Finish Stripe to publish, or keep editing below."
+          : "Update your photos, details, price, and delivery options."}
+      </p>
+      {listing.status === ListingStatus.DRAFT && !stripeReady && (
+        <div className="mt-4 rounded-2xl bg-gold/20 p-4 text-sm">
+          {sp.stripe === "return" || sp.stripe === "refresh"
+            ? "Stripe setup isn’t finished yet. Save again to continue Stripe onboarding, or use Manage Stripe."
+            : "Connect Stripe to publish this listing so buyers can pay you through SLO Market."}{" "}
+          <Link href="/dashboard/stripe" className="font-semibold text-ocean">
+            Manage Stripe
+          </Link>
+        </div>
+      )}
       <div className="mt-6">
         <EditListingForm
           categories={categories}
           cities={cities}
+          stripeReady={stripeReady}
+          isDraft={listing.status === ListingStatus.DRAFT}
           listing={{
             id: listing.id,
             title: listing.title,
