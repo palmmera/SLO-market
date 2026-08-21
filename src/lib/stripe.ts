@@ -23,7 +23,7 @@ export const STRIPE_CONNECT = {
   chargeType: "direct",
   feesPayer: "account",
   lossesPayments: "application",
-  requirementCollection: "stripe",
+  requirementCollection: "application",
 } as const;
 
 let stripeClient: Stripe | null = null;
@@ -42,6 +42,17 @@ export function getStripe() {
 export function stripeConfigured() {
   const secret = process.env.STRIPE_SECRET_KEY?.trim();
   const publishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+  
+  // Debug logging (will only show prefix/length, not actual keys)
+  console.log('[Stripe Config Check]', {
+    secretExists: !!secret,
+    secretPrefix: secret?.substring(0, 3),
+    secretLength: secret?.length,
+    publishableExists: !!publishable,
+    publishablePrefix: publishable?.substring(0, 3),
+    publishableLength: publishable?.length,
+  });
+  
   return Boolean(secret && publishable && secret.startsWith("sk_") && publishable.startsWith("pk_"));
 }
 
@@ -56,8 +67,8 @@ export function connectedAccountCreateParams(input: {
     controller: {
       fees: { payer: "account" },
       losses: { payments: "application" },
+      requirement_collection: "application",
       stripe_dashboard: { type: "express" },
-      requirement_collection: "stripe",
     },
     capabilities: {
       card_payments: { requested: true },
