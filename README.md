@@ -6,7 +6,7 @@ Local marketplace for San Luis Obispo County. Buy local. Sell local. Keep it in 
 
 - Next.js 15 (App Router) + TypeScript
 - PostgreSQL + Prisma
-- NextAuth credentials auth
+- NextAuth (email/password + optional Google)
 - Stripe Connect (12% platform fee via `application_fee_amount`)
 - Render-ready (`render.yaml`)
 
@@ -20,6 +20,15 @@ Local marketplace for San Luis Obispo County. Buy local. Sell local. Keep it in 
 6. `npm run dev`
 
 Admin login uses `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`.
+
+### Google sign-in (optional)
+
+Email/password still works. To add Google as an extra option on `/login` and `/register`:
+
+1. Create an OAuth 2.0 **Web** client in [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Add authorized JavaScript origins: your `NEXTAUTH_URL` (e.g. `http://localhost:3001`)
+3. Add authorized redirect URI: `{NEXTAUTH_URL}/api/auth/callback/google`
+4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env` (and on Render)
 
 ## Stripe
 
