@@ -1,24 +1,18 @@
 import Stripe from "stripe";
 
 /**
- * Stripe Connect model for SLO Market:
+ * Stripe Connect model for SLO Market (matches current Stripe Accounts API):
  *
- * - Connected accounts: Express (`type: "express"`)
- * - Charge type: Direct charges on the connected account (`Stripe-Account` header)
+ * - Express dashboard via controller properties (not deprecated `type: "express"` alone)
+ * - Platform collects Connect fees + is liable for losses (required for Express)
+ * - Charge type: Direct charges (`Stripe-Account` header)
  * - Platform monetization: `application_fee_amount` = marketplace commission (default 12%)
- * - With Express + direct charges, Stripe bills card-processing fees to the connected
- *   account (`controller.fees.payer` resolves to `application_express`)
- * - Platform is liable for connected-account losses (Express requirement)
- * - No seller subscription / monthly platform / listing fee for Connect itself
- *
- * Note: You cannot combine `stripe_dashboard.type=express` with `fees.payer=account`
- * or `losses.payments=stripe` — Stripe rejects that combination.
  */
 export const STRIPE_CONNECT = {
   pricingModel: "express_direct_charges",
   accountDashboard: "express",
   chargeType: "direct",
-  feesPayer: "application_express",
+  feesPayer: "application",
   lossesPayments: "application",
   requirementCollection: "stripe",
 } as const;
@@ -42,15 +36,23 @@ export function stripeConfigured() {
   return Boolean(secret && publishable && secret.startsWith("sk_") && publishable.startsWith("pk_"));
 }
 
-/** Create an Express connected account for marketplace direct charges. */
+/**
+ * Express connected account — exact combination Stripe documents for Express:
+ * fees.payer=application, losses.payments=application, stripe_dashboard.type=express
+ */
 export function connectedAccountCreateParams(input: {
   email: string;
   userId: string;
 }): Stripe.AccountCreateParams {
   return {
-    type: "express",
     country: "US",
     email: input.email,
+    controller: {
+      fees: { payer: "application" },
+      losses: { payments: "application" },
+      stripe_dashboard: { type: "express" },
+      requirement_collection: "stripe",
+    },
     capabilities: {
       card_payments: { requested: true },
       transfers: { requested: true },
