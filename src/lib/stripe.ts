@@ -23,7 +23,7 @@ export const STRIPE_CONNECT = {
   chargeType: "direct",
   feesPayer: "account",
   lossesPayments: "application",
-  requirementCollection: "application",
+  requirementCollection: "stripe",
 } as const;
 
 let stripeClient: Stripe | null = null;
@@ -67,7 +67,7 @@ export function connectedAccountCreateParams(input: {
     controller: {
       fees: { payer: "account" },
       losses: { payments: "application" },
-      requirement_collection: "application",
+      requirement_collection: "stripe",
       stripe_dashboard: { type: "express" },
     },
     capabilities: {
