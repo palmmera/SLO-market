@@ -179,6 +179,8 @@ export async function connectStripeAccount(opts?: { returnPath?: string; refresh
     });
   }
 
+  if (!record) throw new Error("Could not create a Stripe connected account.");
+
   const returnPath = opts?.returnPath || "/dashboard/stripe?return=1";
   const refreshPath = opts?.refreshPath || "/dashboard/stripe?refresh=1";
   const link = await stripe.accountLinks.create({
