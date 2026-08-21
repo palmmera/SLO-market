@@ -13,9 +13,11 @@ import {
   adminSaveProhibited,
   adminSuspendUser,
   adminUpdateSettings,
+  adminPurgeExpiredImages,
 } from "@/actions/admin";
 import { OrderStatus } from "@prisma/client";
 import Link from "next/link";
+import { IMAGE_RETENTION_DAYS } from "@/lib/cleanup-images";
 
 export default async function AdminPage() {
   const session = await getSession();
@@ -125,6 +127,18 @@ export default async function AdminPage() {
             Commission on delivery fees
           </label>
           <button className="rounded-xl bg-ocean py-2 text-white md:col-span-2">Save settings</button>
+        </form>
+      </section>
+
+      <section>
+        <h2 className="font-display text-2xl">Photo storage</h2>
+        <p className="mt-1 text-sm text-muted">
+          Sold or removed listings keep their photos for {IMAGE_RETENTION_DAYS} days (disputes / history), then photos are deleted and only text remains. This also runs automatically about once a day.
+        </p>
+        <form action={adminPurgeExpiredImages} className="mt-3">
+          <button className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white">
+            Run {IMAGE_RETENTION_DAYS}-day photo cleanup now
+          </button>
         </form>
       </section>
 

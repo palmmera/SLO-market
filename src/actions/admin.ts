@@ -110,3 +110,18 @@ export async function adminResolveDispute(disputeId: string, notes: string) {
   });
   revalidatePath("/admin");
 }
+
+/** Manually run the 90-day sold/removed photo purge (listing text stays). */
+export async function adminPurgeExpiredImages() {
+  await requireAdmin();
+  const { purgeExpiredListingImages, IMAGE_RETENTION_DAYS } = await import("@/lib/cleanup-images");
+  const result = await purgeExpiredListingImages();
+  await prisma.auditLog.create({
+    data: {
+      action: "PURGE_EXPIRED_IMAGES",
+      metadata: result,
+    },
+  });
+  revalidatePath("/admin");
+  return { ...result, retentionDays: IMAGE_RETENTION_DAYS };
+}
