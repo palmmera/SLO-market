@@ -32,14 +32,6 @@ export default async function SellPage() {
           Garage sale photo
         </Link>
       </div>
-      {!stripeReady && (
-        <div className="mt-4 rounded-2xl bg-gold/20 p-4 text-sm">
-          Fill in your listing below. When you publish, you’ll connect Stripe so buyers can pay you through SLO Market.{" "}
-          <Link href="/dashboard/stripe" className="font-semibold text-ocean">
-            Manage Stripe
-          </Link>
-        </div>
-      )}
       <div className="mt-6">
         <SellForm
           categories={categories}

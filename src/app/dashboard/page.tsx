@@ -60,7 +60,7 @@ export default async function SellerDashboard() {
         ))}
       </Section>
       {drafts.length > 0 && (
-        <Section title="Drafts — finish Stripe to publish">
+        <Section title="Drafts">
           <div className="grid gap-2">
             {drafts.map((l) => {
               const image = l.images[0]?.thumbnailUrl || l.images[0]?.url;
@@ -80,7 +80,7 @@ export default async function SellerDashboard() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{l.title}</div>
-                    <p className="mt-0.5 text-xs text-muted">Saved as draft — continue to publish</p>
+                    <p className="mt-0.5 text-xs text-muted">Draft — continue to publish</p>
                   </div>
                 </Link>
               );

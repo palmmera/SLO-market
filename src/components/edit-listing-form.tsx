@@ -324,15 +324,7 @@ export function EditListingForm({
 
       {error && <p className="text-sm text-clay">{error}</p>}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">
-        {pending
-          ? isDraft && !stripeReady
-            ? "Taking you to Stripe..."
-            : "Saving..."
-          : isDraft && !stripeReady
-            ? "Finish Stripe to publish"
-            : isDraft
-              ? "Publish listing"
-              : "Save changes"}
+        {pending ? (isDraft && !stripeReady ? "Taking you to Stripe..." : "Saving...") : isDraft ? "Publish listing" : "Save changes"}
       </button>
     </form>
   );
