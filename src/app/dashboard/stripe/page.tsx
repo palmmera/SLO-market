@@ -10,7 +10,6 @@ export default async function StripePage() {
     const session = await getSession();
     if (!session?.user?.id) redirect("/login");
     
-    console.log("[Stripe Page] Loading - losses config should be 'application'");
     
     let refreshError: string | null = null;
     try {
