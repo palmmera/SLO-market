@@ -64,7 +64,21 @@ export default async function EditListingPage({
       <h1 className="mt-3 font-display text-4xl">
         {listing.status === ListingStatus.DRAFT ? "Finish listing" : "Edit listing"}
       </h1>
-      <p className="mt-2 text-muted">Update your photos, details, price, and delivery options.</p>
+      <p className="mt-2 text-muted">
+        {listing.status === ListingStatus.DRAFT
+          ? "Your details are saved as a draft. Finish Stripe to publish, or keep editing below."
+          : "Update your photos, details, price, and delivery options."}
+      </p>
+      {listing.status === ListingStatus.DRAFT && !stripeReady && (
+        <div className="mt-4 rounded-2xl bg-gold/20 p-4 text-sm">
+          {sp.stripe === "return" || sp.stripe === "refresh"
+            ? "Stripe setup isn’t finished yet. Save again to continue Stripe onboarding, or use Manage Stripe."
+            : "Connect Stripe to publish this listing so buyers can pay you through SLO Market."}{" "}
+          <Link href="/dashboard/stripe" className="font-semibold text-ocean">
+            Manage Stripe
+          </Link>
+        </div>
+      )}
       <div className="mt-6">
         <EditListingForm
           categories={categories}

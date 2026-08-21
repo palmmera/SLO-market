@@ -49,10 +49,6 @@ export function SellForm({
                 returnPath: `/dashboard/listings/${result.listingId}/edit?stripe=return`,
                 refreshPath: `/dashboard/listings/${result.listingId}/edit?stripe=refresh`,
               });
-              if (!url) {
-                setError("Stripe isn’t configured. Add your Stripe keys to .env and restart the app.");
-                return;
-              }
               window.location.href = url;
               return;
             }
@@ -70,6 +66,12 @@ export function SellForm({
         });
       }}
     >
+      {!stripeReady && (
+        <p className="rounded-2xl bg-gold/20 p-4 text-sm">
+          You can fill in photos and details now. When you publish, you’ll finish connecting Stripe so you can get paid
+          through SLO Market.
+        </p>
+      )}
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">1. Photos</h2>
         <p className="text-sm text-muted">Up to 10 photos. Large, clear pictures sell faster.</p>
@@ -304,9 +306,19 @@ export function SellForm({
 
       {error && <p className="text-sm text-clay">{error}</p>}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">
-        {pending ? (stripeReady ? "Publishing..." : "Taking you to Stripe...") : "9. Publish"}
+        {pending
+          ? stripeReady
+            ? "Publishing..."
+            : "Taking you to Stripe..."
+          : stripeReady
+            ? "9. Publish"
+            : "9. Finish Stripe to publish"}
       </button>
-      <p className="text-center text-xs text-muted">Basic listings are free. Enhanced description is optional and $1.</p>
+      <p className="text-center text-xs text-muted">
+        {stripeReady
+          ? "Basic listings are free. Enhanced description is optional and $1."
+          : "Publishing requires a free Stripe account so buyers can pay you through SLO Market."}
+      </p>
     </form>
   );
 }

@@ -146,27 +146,8 @@ export async function connectStripeAccount(opts?: { returnPath?: string; refresh
   if (!stripeConfigured()) throw new Error("Stripe is not configured.");
   const stripe = getStripe();
   let record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
-
-  // Clear broken/outdated Connect rows so onboarding can recreate a valid Express account.
-  if (record) {
-    try {
-      const existing = await stripe.accounts.retrieve(record.stripeAccountId);
-      const feesPayer = existing.controller?.fees?.payer;
-      const lossesPayer = existing.controller?.losses?.payments;
-      const dashboardType = existing.controller?.stripe_dashboard?.type;
-      const invalidExpress =
-        dashboardType === "express" && (feesPayer === "account" || lossesPayer === "stripe");
-      if (invalidExpress) {
-        await prisma.stripeAccount.delete({ where: { id: record.id } });
-        record = null;
-      }
-    } catch {
-      await prisma.stripeAccount.delete({ where: { id: record.id } }).catch(() => null);
-      record = null;
-    }
-  }
-
   if (!record) {
+    // Stripe-handles-pricing Express-style account (no $2/MAA Connect account fee).
     const account = await stripe.accounts.create(
       connectedAccountCreateParams({ email: user.email, userId: user.id }),
     );
@@ -178,9 +159,6 @@ export async function connectStripeAccount(opts?: { returnPath?: string; refresh
       },
     });
   }
-
-  if (!record) throw new Error("Could not create a Stripe connected account.");
-
   const returnPath = opts?.returnPath || "/dashboard/stripe?return=1";
   const refreshPath = opts?.refreshPath || "/dashboard/stripe?refresh=1";
   const link = await stripe.accountLinks.create({
