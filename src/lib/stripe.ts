@@ -10,6 +10,8 @@ import Stripe from "stripe";
  *   (`controller.fees.payer = account`, Stripe collects processing fees from sellers)
  * - Charge type: Direct charges on the connected account (`Stripe-Account` header)
  * - Platform monetization: `application_fee_amount` = marketplace commission (default 12%)
+ * - Liability: Platform is liable for negative balances, refunds, and chargebacks
+ *   (`controller.losses.payments = application`, required for Express accounts with account-paid fees)
  * - No seller subscription / monthly platform / listing fee for Connect itself
  *
  * Do not use destination charges for marketplace sales under this configuration —
@@ -20,7 +22,7 @@ export const STRIPE_CONNECT = {
   accountDashboard: "express",
   chargeType: "direct",
   feesPayer: "account",
-  lossesPayments: "stripe",
+  lossesPayments: "application",
   requirementCollection: "stripe",
 } as const;
 
@@ -53,7 +55,7 @@ export function connectedAccountCreateParams(input: {
     email: input.email,
     controller: {
       fees: { payer: "account" },
-      losses: { payments: "stripe" },
+      losses: { payments: "application" },
       stripe_dashboard: { type: "express" },
       requirement_collection: "stripe",
     },
