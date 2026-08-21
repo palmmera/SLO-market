@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { StripeConnectPanel } from "@/components/stripe-panel";
 import { refreshStripeStatus } from "@/actions/orders";
+import { stripeConfigured } from "@/lib/stripe";
 
 export default async function StripePage() {
   const session = await getSession();
@@ -16,6 +17,7 @@ export default async function StripePage() {
         detailsSubmitted={Boolean(account?.detailsSubmitted)}
         chargesEnabled={Boolean(account?.chargesEnabled)}
         payoutsEnabled={Boolean(account?.payoutsEnabled)}
+        stripeConfigured={stripeConfigured()}
       />
     </div>
   );

@@ -49,6 +49,10 @@ export function SellForm({
                 returnPath: `/dashboard/listings/${result.listingId}/edit?stripe=return`,
                 refreshPath: `/dashboard/listings/${result.listingId}/edit?stripe=refresh`,
               });
+              if (!url) {
+                setError("Stripe isn’t configured. Add your Stripe keys to .env and restart the app.");
+                return;
+              }
               window.location.href = url;
               return;
             }

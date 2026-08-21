@@ -38,7 +38,9 @@ export function getStripe() {
 }
 
 export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+  const secret = process.env.STRIPE_SECRET_KEY?.trim();
+  const publishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+  return Boolean(secret && publishable && secret.startsWith("sk_") && publishable.startsWith("pk_"));
 }
 
 /** Create a connected account eligible for Stripe-handles-pricing + direct charges. */
