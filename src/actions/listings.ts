@@ -159,6 +159,93 @@ export async function toggleFavorite(listingId: string) {
   return { favorited: true };
 }
 
+export async function updateListing(listingId: string, formData: FormData) {
+  const user = await currentUser();
+  const existing = await prisma.listing.findFirst({
+    where: { id: listingId, sellerId: user.id, status: { not: ListingStatus.REMOVED } },
+    include: { images: { orderBy: { sortOrder: "asc" } }, city: true },
+  });
+  if (!existing) throw new Error("Listing not found.");
+
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const categoryId = String(formData.get("categoryId") || "");
+  const cityId = String(formData.get("cityId") || "");
+  const listingType = String(formData.get("listingType") || "FOR_SALE") as ListingType;
+  const condition = (formData.get("condition") as Condition | null) || null;
+  const price = Number(formData.get("price") || 0);
+  const fulfillment = String(formData.get("fulfillment") || "PICKUP_ONLY") as FulfillmentMethod;
+  const deliveryRadiusMiles = formData.get("deliveryRadiusMiles") ? Number(formData.get("deliveryRadiusMiles")) : null;
+  const deliveryFee = Number(formData.get("deliveryFee") || 0);
+  const freeDelivery = formData.get("freeDelivery") === "on";
+
+  if (!title || !categoryId || !cityId) throw new Error("Title, category, and city are required.");
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  const city = await prisma.city.findUnique({ where: { id: cityId } });
+  if (!category || !city) throw new Error("Please choose a valid category and city.");
+
+  const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
+  const priceChanged = priceCents !== existing.priceCents;
+  const seoTitle = `${title} in ${city.name} | SLO Market`;
+  const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
+
+  const listing = await prisma.listing.update({
+    where: { id: listingId },
+    data: {
+      title,
+      description,
+      listingType,
+      condition: listingType === "WANTED" ? null : condition,
+      priceCents,
+      categoryId,
+      cityId,
+      fulfillment,
+      deliveryRadiusMiles: fulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
+      deliveryFeeCents: fulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
+      freeDelivery: fulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
+      seoTitle,
+      seoDescription,
+    },
+  });
+
+  const removeImageIds = formData
+    .getAll("removeImageIds")
+    .map(String)
+    .filter(Boolean);
+  if (removeImageIds.length) {
+    await prisma.listingImage.deleteMany({
+      where: { listingId, id: { in: removeImageIds } },
+    });
+  }
+
+  const remaining = await prisma.listingImage.count({ where: { listingId } });
+  const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0).slice(0, Math.max(0, 10 - remaining));
+  for (const [index, file] of files.entries()) {
+    const saved = await saveListingImage(file);
+    await prisma.listingImage.create({
+      data: {
+        listingId,
+        url: saved.url,
+        thumbnailUrl: saved.thumbnailUrl,
+        width: saved.width,
+        height: saved.height,
+        sortOrder: remaining + index,
+        alt: title,
+      },
+    });
+  }
+
+  if (priceChanged) {
+    await notifyFavoritesListingChange(listingId, "PRICE_CHANGE", "Price update", `${listing.title} now costs a different amount.`);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/browse");
+  revalidatePath("/dashboard");
+  revalidatePath(`/listing/${listing.slug}`);
+  return { listingId: listing.id, slug: listing.slug };
+}
+
 export async function updateListingPrice(listingId: string, priceCents: number) {
   const user = await currentUser();
   const listing = await prisma.listing.findFirst({ where: { id: listingId, sellerId: user.id } });
@@ -184,6 +271,10 @@ export async function removeListing(listingId: string) {
   if (!listing && user.role !== "ADMIN") throw new Error("Listing not found.");
   await prisma.listing.update({ where: { id: listingId }, data: { status: ListingStatus.REMOVED } });
   await notifyFavoritesListingChange(listingId, "LISTING_REMOVED", "Listing removed", `${listing?.title ?? "A saved listing"} was removed.`);
+  revalidatePath("/dashboard");
+  revalidatePath("/");
+  revalidatePath("/browse");
+  if (listing?.slug) revalidatePath(`/listing/${listing.slug}`);
 }
 
 export async function startMessage(listingId: string, body: string) {

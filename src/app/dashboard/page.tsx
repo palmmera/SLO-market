@@ -4,13 +4,18 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney, stripeStatusLabel } from "@/lib/utils";
 import { ListingStatus } from "@prisma/client";
+import { ActiveListingRow } from "@/components/active-listing-row";
 
 export default async function SellerDashboard() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
   const [active, sold, pending, completed, stripe, sales, enhanced] = await Promise.all([
-    prisma.listing.findMany({ where: { sellerId: userId, status: ListingStatus.ACTIVE }, include: { images: { take: 1 } }, orderBy: { createdAt: "desc" } }),
+    prisma.listing.findMany({
+      where: { sellerId: userId, status: ListingStatus.ACTIVE },
+      include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.listing.findMany({ where: { sellerId: userId, status: ListingStatus.SOLD }, take: 20, orderBy: { soldAt: "desc" } }),
     prisma.order.findMany({ where: { sellerId: userId, status: { in: ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] } }, include: { items: true } }),
     prisma.order.findMany({ where: { sellerId: userId, status: "COMPLETED" }, take: 20 }),
@@ -53,9 +58,17 @@ export default async function SellerDashboard() {
         {active.length === 0 && <Empty />}
         <div className="grid gap-2">
           {active.map((l) => (
-            <Link key={l.id} href={`/listing/${l.slug}`} className="rounded-2xl bg-white p-4 card-shadow">
-              {l.title}
-            </Link>
+            <ActiveListingRow
+              key={l.id}
+              listing={{
+                id: l.id,
+                slug: l.slug,
+                title: l.title,
+                priceCents: l.priceCents,
+                listingType: l.listingType,
+                images: l.images,
+              }}
+            />
           ))}
         </div>
       </Section>
