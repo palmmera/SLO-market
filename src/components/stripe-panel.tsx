@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { connectStripeAccount, openStripeDashboard, refreshStripeStatus } from "@/actions/orders";
+import { connectStripeAccount, openStripeDashboard, refreshStripeStatus, deleteStripeAccount } from "@/actions/orders";
 import { stripeStatusLabel } from "@/lib/utils";
 
 export function StripeConnectPanel({
@@ -100,6 +100,28 @@ export function StripeConnectPanel({
             }
           >
             Manage Stripe Account
+          </button>
+        )}
+        {status !== "NOT_CONNECTED" && status !== "PAYOUTS_ENABLED" && (
+          <button
+            disabled={pending || !stripeConfigured}
+            className="rounded-2xl border-2 border-clay/20 bg-white py-3 font-semibold text-clay disabled:opacity-50"
+            onClick={() =>
+              start(async () => {
+                if (!confirm("This will disconnect and delete your Stripe account. You'll need to reconnect. Continue?")) {
+                  return;
+                }
+                setError("");
+                try {
+                  await deleteStripeAccount();
+                  window.location.reload();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Could not reset Stripe account.");
+                }
+              })
+            }
+          >
+            Reset Stripe Account
           </button>
         )}
       </div>

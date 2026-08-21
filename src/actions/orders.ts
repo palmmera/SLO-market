@@ -174,21 +174,34 @@ export async function refreshStripeStatus() {
   const user = await currentUser();
   const record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   if (!record || !stripeConfigured()) return record;
-  const account = await getStripe().accounts.retrieve(record.stripeAccountId);
-  const status = account.payouts_enabled
-    ? "PAYOUTS_ENABLED"
-    : account.details_submitted
-      ? "CONNECTED"
-      : "SETUP_INCOMPLETE";
-  return prisma.stripeAccount.update({
-    where: { id: record.id },
-    data: {
-      detailsSubmitted: Boolean(account.details_submitted),
-      chargesEnabled: Boolean(account.charges_enabled),
-      payoutsEnabled: Boolean(account.payouts_enabled),
-      status,
-    },
-  });
+  
+  try {
+    const account = await getStripe().accounts.retrieve(record.stripeAccountId);
+    const status = account.payouts_enabled
+      ? "PAYOUTS_ENABLED"
+      : account.details_submitted
+        ? "CONNECTED"
+        : "SETUP_INCOMPLETE";
+    return prisma.stripeAccount.update({
+      where: { id: record.id },
+      data: {
+        detailsSubmitted: Boolean(account.details_submitted),
+        chargesEnabled: Boolean(account.charges_enabled),
+        payoutsEnabled: Boolean(account.payouts_enabled),
+        status,
+      },
+    });
+  } catch (err: any) {
+    console.error("Stripe account retrieval failed:", err);
+    
+    if (err?.code === "account_invalid" || err?.statusCode === 404) {
+      console.log("Deleting invalid Stripe account record:", record.stripeAccountId);
+      await prisma.stripeAccount.delete({ where: { id: record.id } });
+      throw new Error("Your Stripe account configuration was outdated and has been removed. Please reconnect your Stripe account.");
+    }
+    
+    throw new Error(`Failed to refresh Stripe status: ${err?.message || "Unknown error"}`);
+  }
 }
 
 export async function openStripeDashboard() {
@@ -197,6 +210,21 @@ export async function openStripeDashboard() {
   if (!record) throw new Error("Connect Stripe first.");
   const link = await getStripe().accounts.createLoginLink(record.stripeAccountId);
   return link.url;
+}
+
+export async function deleteStripeAccount() {
+  const user = await currentUser();
+  const record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+  if (!record) throw new Error("No Stripe account found.");
+  
+  try {
+    await getStripe().accounts.del(record.stripeAccountId);
+  } catch (err) {
+    console.warn("Could not delete Stripe account (may already be deleted):", err);
+  }
+  
+  await prisma.stripeAccount.delete({ where: { id: record.id } });
+  return true;
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
