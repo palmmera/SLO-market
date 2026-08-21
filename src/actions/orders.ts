@@ -147,7 +147,7 @@ export async function connectStripeAccount(opts?: { returnPath?: string; refresh
   const stripe = getStripe();
   let record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   if (!record) {
-    // Stripe-handles-pricing Express-style account (no $2/MAA Connect account fee).
+    // Express connected account (Stripe sets fees.payer=application_express for direct charges).
     const account = await stripe.accounts.create(
       connectedAccountCreateParams({ email: user.email, userId: user.id }),
     );

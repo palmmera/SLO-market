@@ -64,10 +64,9 @@ export function calculateFees(input: {
 
 export function stripeFeeCopy(treatment: FeeBreakdown["stripeFeeTreatment"]) {
   if (treatment === "ABSORB_BY_PLATFORM") {
-    return "Note: under Stripe-handles-pricing direct charges, Stripe bills card-processing fees to the seller’s connected account; the platform cannot absorb those Stripe fees in this Connect model.";
+    return "Note: with Express direct charges, Stripe typically bills card-processing fees to the seller’s connected account; the platform cannot absorb those Stripe fees in this Connect model.";
   }
-  // CONNECT_DEFAULT and DEDUCT_FROM_SELLER both match Stripe-handles-pricing behavior.
-  return "Stripe card-processing fees are billed by Stripe to the seller’s connected account (Stripe handles pricing). SLO Market only collects its marketplace commission as an application fee—there is no $2/month Connect account fee on this model.";
+  return "Stripe card-processing fees are billed to the seller’s connected account on marketplace checkout. SLO Market only collects its marketplace commission as an application fee.";
 }
 
 export function marketplaceCommissionCopy(commissionPercent: number | Decimal, commissionOnDelivery: boolean) {
