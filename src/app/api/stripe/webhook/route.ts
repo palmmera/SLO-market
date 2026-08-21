@@ -9,15 +9,26 @@ import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!signature || !secret) {
+  // Two Stripe webhook endpoints point here, each with its own signing secret:
+  // one for connected-account events (marketplace sales) and one for platform
+  // events (enhanced descriptions). Accept a signature from either.
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_SECRET_2]
+    .map((s) => s?.trim())
+    .filter((s): s is string => Boolean(s));
+  if (!signature || secrets.length === 0) {
     return NextResponse.json({ error: "Missing webhook secret" }, { status: 400 });
   }
   const body = await req.text();
-  let event: Stripe.Event;
-  try {
-    event = getStripe().webhooks.constructEvent(body, signature, secret);
-  } catch {
+  let event: Stripe.Event | null = null;
+  for (const secret of secrets) {
+    try {
+      event = getStripe().webhooks.constructEvent(body, signature, secret);
+      break;
+    } catch {
+      // try the next secret
+    }
+  }
+  if (!event) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
