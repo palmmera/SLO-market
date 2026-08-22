@@ -75,7 +75,7 @@ export function SellForm({
               {previews.length > 0 ? `${previews.length} photo${previews.length > 1 ? 's' : ''} selected` : '📸 Upload Photos'}
             </div>
             <div className="mt-1 text-xs text-muted group-hover:text-ocean transition-colors">
-              Click to choose up to 10 images
+              Take photos or choose from library
             </div>
           </div>
           <input
@@ -83,7 +83,6 @@ export function SellForm({
             type="file"
             accept="image/*"
             multiple
-            capture="environment"
             className="hidden"
             onChange={(e) => {
               const files = Array.from(e.target.files || []).slice(0, 10);
@@ -92,10 +91,12 @@ export function SellForm({
           />
         </label>
         {previews.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5">
-            {previews.map((src) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={src} src={src} alt="" className="h-24 w-full rounded-xl object-cover" />
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {previews.map((src, idx) => (
+              <div key={src} className="relative aspect-square">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`Preview ${idx + 1}`} className="absolute inset-0 h-full w-full rounded-xl object-cover" />
+              </div>
             ))}
           </div>
         )}

@@ -16,6 +16,7 @@ export function PhotoSaleStart({
   const router = useRouter();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [fileName, setFileName] = useState("");
   const parents = categories.filter((c) => !c.parentId);
 
   return (
@@ -34,8 +35,28 @@ export function PhotoSaleStart({
         });
       }}
     >
-      <p className="text-sm text-muted">Take one photo of your garage, yard, room, or produce stand. Then tap each item, adjust the box, and add a price.</p>
-      <input name="photo" type="file" accept="image/*" capture="environment" required className="w-full text-sm" />
+      <p className="text-sm text-muted">Take a photo or choose from your library. Then tap each item, adjust the box, and add a price.</p>
+      <label className="block cursor-pointer">
+        <div className="group relative overflow-hidden rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-8 text-center transition-all hover:border-ocean hover:bg-ocean-light">
+          <div className="text-sm font-medium text-muted group-hover:text-ocean transition-colors">
+            {fileName ? fileName : '📷 Upload an image'}
+          </div>
+          <div className="mt-1 text-xs text-muted group-hover:text-ocean transition-colors">
+            Take a photo or choose from library
+          </div>
+        </div>
+        <input
+          name="photo"
+          type="file"
+          accept="image/*"
+          required
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            setFileName(file ? file.name : "");
+          }}
+        />
+      </label>
       <input name="title" placeholder="Garage sale, yard sale, or room name" defaultValue="Garage Sale" className="w-full rounded-2xl bg-sand px-4 py-3" />
       <select name="type" className="w-full rounded-2xl bg-sand px-4 py-3">
         <option value="GARAGE_SALE">Garage sale</option>
