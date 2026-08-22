@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Camera, ImageIcon } from "lucide-react";
 import { updateListing } from "@/actions/listings";
 import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
+import { compressImage } from "@/lib/image-compress";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean };
 
@@ -57,14 +59,48 @@ export function EditListingForm({
   const [fulfillment, setFulfillment] = useState(listing.fulfillment);
   const [existingImages, setExistingImages] = useState(listing.images);
   const [removeImageIds, setRemoveImageIds] = useState<string[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [newPhotos, setNewPhotos] = useState<{ file: File; url: string }[]>([]);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
   const selectedParent = parents.find((p) => p.id === parentId);
+  const totalPhotoCount = existingImages.length + newPhotos.length;
+
+  useEffect(() => {
+    return () => {
+      newPhotos.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function removeExistingImage(id: string) {
     setExistingImages((imgs) => imgs.filter((img) => img.id !== id));
     setRemoveImageIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
+  async function addFiles(list: FileList | null) {
+    const incoming = Array.from(list || []);
+    if (!incoming.length) return;
+    setError("");
+    const room = Math.max(0, 10 - existingImages.length - newPhotos.length);
+    const chosen = incoming.slice(0, room);
+    const processed = await Promise.all(
+      chosen.map(async (f) => {
+        const file = await compressImage(f);
+        return { file, url: URL.createObjectURL(file) };
+      }),
+    );
+    setNewPhotos((prev) => [...prev, ...processed].slice(0, Math.max(0, 10 - existingImages.length)));
+  }
+
+  function removeNewPhoto(index: number) {
+    setNewPhotos((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(index, 1);
+      if (removed) URL.revokeObjectURL(removed.url);
+      return next;
+    });
   }
 
   return (
@@ -77,6 +113,7 @@ export function EditListingForm({
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
         for (const id of removeImageIds) form.append("removeImageIds", id);
+        for (const p of newPhotos) form.append("photos", p.file);
         start(async () => {
           try {
             const result = await updateListing(listing.id, form);
@@ -125,24 +162,65 @@ export function EditListingForm({
             ))}
           </div>
         )}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            disabled={totalPhotoCount >= 10}
+            className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-5 text-sm font-medium text-muted transition-all hover:border-ocean hover:bg-ocean-light hover:text-ocean disabled:opacity-50"
+          >
+            <Camera className="h-5 w-5" />
+            Take Photo
+          </button>
+          <button
+            type="button"
+            onClick={() => libraryRef.current?.click()}
+            disabled={totalPhotoCount >= 10}
+            className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-5 text-sm font-medium text-muted transition-all hover:border-ocean hover:bg-ocean-light hover:text-ocean disabled:opacity-50"
+          >
+            <ImageIcon className="h-5 w-5" />
+            Choose from Library
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          {totalPhotoCount}/10 photos · new photos are optimized on your device before upload
+        </p>
         <input
-          name="photos"
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            void addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={libraryRef}
           type="file"
           accept="image/*"
           multiple
-          capture="environment"
-          className="mt-3 w-full text-sm"
+          className="hidden"
           onChange={(e) => {
-            const remainingSlots = Math.max(0, 10 - existingImages.length);
-            const files = Array.from(e.target.files || []).slice(0, remainingSlots);
-            setPreviews(files.map((f) => URL.createObjectURL(f)));
+            void addFiles(e.target.files);
+            e.target.value = "";
           }}
         />
-        {previews.length > 0 && (
+        {newPhotos.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5">
-            {previews.map((src) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={src} src={src} alt="" className="h-24 w-full rounded-xl object-cover" />
+            {newPhotos.map((p, index) => (
+              <div key={p.url} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt="" className="h-24 w-full rounded-xl object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeNewPhoto(index)}
+                  className="absolute right-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-clay"
+                >
+                  Remove
+                </button>
+              </div>
             ))}
           </div>
         )}

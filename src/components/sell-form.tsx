@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Camera, ImageIcon } from "lucide-react";
 import { createListing, startEnhancedDescriptionCheckout } from "@/actions/listings";
 import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
+import { compressImage } from "@/lib/image-compress";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean };
 
@@ -26,10 +28,43 @@ export function SellForm({
   const [listingType, setListingType] = useState("FOR_SALE");
   const [fulfillment, setFulfillment] = useState("PICKUP_ONLY");
   const [enhanced, setEnhanced] = useState(false);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
   const selectedParent = parents.find((p) => p.id === parentId);
+
+  useEffect(() => {
+    return () => {
+      photos.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function addFiles(list: FileList | null) {
+    const incoming = Array.from(list || []);
+    if (!incoming.length) return;
+    setError("");
+    const room = Math.max(0, 10 - photos.length);
+    const chosen = incoming.slice(0, room);
+    const processed = await Promise.all(
+      chosen.map(async (f) => {
+        const file = await compressImage(f);
+        return { file, url: URL.createObjectURL(file) };
+      }),
+    );
+    setPhotos((prev) => [...prev, ...processed].slice(0, 10));
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(index, 1);
+      if (removed) URL.revokeObjectURL(removed.url);
+      return next;
+    });
+  }
 
   return (
     <form
@@ -41,6 +76,7 @@ export function SellForm({
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
         form.set("enhanced", enhanced ? "1" : "0");
+        for (const p of photos) form.append("photos", p.file);
         start(async () => {
           try {
             const result = await createListing(form);
@@ -69,33 +105,69 @@ export function SellForm({
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">1. Photos</h2>
         <p className="text-sm text-muted">Up to 10 photos. Large, clear pictures sell faster.</p>
-        <label className="mt-3 block cursor-pointer">
-          <div className="group relative overflow-hidden rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-8 text-center transition-all hover:border-ocean hover:bg-ocean-light">
-            <div className="text-sm font-medium text-muted group-hover:text-ocean transition-colors">
-              {previews.length > 0 ? `${previews.length} photo${previews.length > 1 ? 's' : ''} selected` : '📸 Upload Photos'}
-            </div>
-            <div className="mt-1 text-xs text-muted group-hover:text-ocean transition-colors">
-              Take photos or choose from library
-            </div>
-          </div>
-          <input
-            name="photos"
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files || []).slice(0, 10);
-              setPreviews(files.map((f) => URL.createObjectURL(f)));
-            }}
-          />
-        </label>
-        {previews.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            disabled={photos.length >= 10}
+            className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-6 text-sm font-medium text-muted transition-all hover:border-ocean hover:bg-ocean-light hover:text-ocean disabled:opacity-50"
+          >
+            <Camera className="h-5 w-5" />
+            Take Photo
+          </button>
+          <button
+            type="button"
+            onClick={() => libraryRef.current?.click()}
+            disabled={photos.length >= 10}
+            className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-6 text-sm font-medium text-muted transition-all hover:border-ocean hover:bg-ocean-light hover:text-ocean disabled:opacity-50"
+          >
+            <ImageIcon className="h-5 w-5" />
+            Choose from Library
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          {photos.length}/10 selected · photos are optimized on your device before upload
+        </p>
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            void addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={libraryRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            void addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        {photos.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-            {previews.map((src, idx) => (
-              <div key={src} className="relative aspect-square">
+            {photos.map((p, idx) => (
+              <div key={p.url} className="relative aspect-square">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt={`Preview ${idx + 1}`} className="absolute inset-0 h-full w-full rounded-xl object-cover" />
+                <img src={p.url} alt={`Preview ${idx + 1}`} className="absolute inset-0 h-full w-full rounded-xl object-cover" />
+                {idx === 0 && (
+                  <span className="absolute left-1 top-1 rounded bg-ink/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    Main
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removePhoto(idx)}
+                  className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-clay"
+                >
+                  Remove
+                </button>
               </div>
             ))}
           </div>
