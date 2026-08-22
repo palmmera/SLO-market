@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveHotspotItem, deleteHotspotItem, markHotspotSold } from "@/actions/hotspots";
 import { connectStripeAccount } from "@/actions/orders";
@@ -8,6 +8,26 @@ import { HOTSPOT_CONDITIONS } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
 
 type Box = { x: number; y: number; width: number; height: number };
+type Suggestion = { id: string; label: string; score: number; box: Box };
+
+const FRAME_ASPECT = 4 / 3;
+
+function titleCase(label: string) {
+  return label.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Convert a box in image-content space (0-1) to the editor frame space (0-1),
+// accounting for object-contain letterboxing inside the fixed 4:3 frame.
+function imageToFrame(nx: number, ny: number, nw: number, nh: number, imgAspect: number): Box {
+  if (imgAspect > FRAME_ASPECT) {
+    const scale = FRAME_ASPECT / imgAspect;
+    const pad = (1 - scale) / 2;
+    return { x: nx, y: pad + ny * scale, width: nw, height: nh * scale };
+  }
+  const scale = imgAspect / FRAME_ASPECT;
+  const pad = (1 - scale) / 2;
+  return { x: pad + nx * scale, y: ny, width: nw * scale, height: nh };
+}
 type Item = {
   listingId: string;
   slug: string;
@@ -43,6 +63,67 @@ export function HotspotEditor({
   const [editing, setEditing] = useState<Item | null>(null);
   const [showMore, setShowMore] = useState(false);
   const [pending, start] = useTransition();
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [scanState, setScanState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftKey, setDraftKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function scan() {
+      try {
+        setScanState("loading");
+        const [tf, cocoSsd] = await Promise.all([
+          import("@tensorflow/tfjs"),
+          import("@tensorflow-models/coco-ssd"),
+        ]);
+        await tf.ready();
+        if (cancelled) return;
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.src = imageUrl;
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("image load failed"));
+        });
+        if (cancelled) return;
+        const model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+        if (cancelled) return;
+        const predictions = await model.detect(img, 20);
+        if (cancelled) return;
+        const imgAspect = img.naturalWidth / img.naturalHeight;
+        const mapped: Suggestion[] = predictions
+          .filter((p) => p.score >= 0.5)
+          .map((p, i) => {
+            const [bx, by, bw, bh] = p.bbox;
+            const box = imageToFrame(
+              bx / img.naturalWidth,
+              by / img.naturalHeight,
+              bw / img.naturalWidth,
+              bh / img.naturalHeight,
+              imgAspect,
+            );
+            return { id: `sug-${i}`, label: p.class, score: p.score, box };
+          });
+        setSuggestions(mapped);
+        setScanState("done");
+      } catch {
+        if (!cancelled) setScanState("error");
+      }
+    }
+    scan();
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
+
+  function openDraft(box: Box, title: string) {
+    setActive(box);
+    setEditing(null);
+    setShowMore(false);
+    setDraftTitle(title);
+    setDraftKey((k) => k + 1);
+  }
   const gesture = useRef<{
     type: "pan" | "box";
     handle?: Handle;
@@ -63,13 +144,15 @@ export function HotspotEditor({
   function addAt(e: React.PointerEvent) {
     const p = relPoint(e);
     const size = 0.16 / scale;
-    setActive({
-      x: Math.max(0, p.x - size / 2),
-      y: Math.max(0, p.y - size / 2),
-      width: Math.min(0.5, size),
-      height: Math.min(0.5, size),
-    });
-    setEditing(null);
+    openDraft(
+      {
+        x: Math.max(0, p.x - size / 2),
+        y: Math.max(0, p.y - size / 2),
+        width: Math.min(0.5, size),
+        height: Math.min(0.5, size),
+      },
+      "",
+    );
   }
 
   function onBoxPointer(e: React.PointerEvent, handle: Handle) {
@@ -121,6 +204,14 @@ export function HotspotEditor({
   return (
     <div className="space-y-3">
       <p className="rounded-2xl bg-ocean px-4 py-3 text-sm font-medium text-white">Tap an item in the photo to add it for sale.</p>
+      {scanState === "loading" && (
+        <p className="rounded-2xl bg-sand px-4 py-2 text-sm text-muted">Scanning photo for items…</p>
+      )}
+      {scanState === "done" && suggestions.length > 0 && (
+        <p className="rounded-2xl bg-ocean-light px-4 py-2 text-sm text-ocean-dark">
+          Found {suggestions.length} possible item{suggestions.length > 1 ? "s" : ""}. Tap a dashed box to add it (name and price are yours to set), or tap anywhere to add your own.
+        </p>
+      )}
       <div className="flex gap-2">
         <button type="button" onClick={() => setScale((s) => Math.min(6, s + 0.25))} className="rounded-full bg-white px-3 py-2 text-sm card-shadow">
           Zoom in
@@ -170,6 +261,7 @@ export function HotspotEditor({
               onClick={() => {
                 setEditing(item);
                 setActive(item.box);
+                setShowMore(false);
               }}
               className="absolute"
               style={{
@@ -181,6 +273,28 @@ export function HotspotEditor({
             >
               <span className="absolute -top-3 left-0 rounded-full bg-gold px-2 py-0.5 text-[11px] font-bold">
                 {item.status === "SOLD" ? "Sold" : formatMoney(item.priceCents)}
+              </span>
+            </button>
+          ))}
+          {suggestions.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => {
+                openDraft(s.box, titleCase(s.label));
+                setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+              }}
+              className="absolute rounded-md border-2 border-dashed border-white bg-white/10"
+              style={{
+                left: `${s.box.x * 100}%`,
+                top: `${s.box.y * 100}%`,
+                width: `${s.box.width * 100}%`,
+                height: `${s.box.height * 100}%`,
+              }}
+            >
+              <span className="absolute -top-3 left-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-ink">
+                + {titleCase(s.label)}
               </span>
             </button>
           ))}
@@ -214,6 +328,7 @@ export function HotspotEditor({
 
       {active && (
         <form
+          key={editing?.listingId ?? `draft-${draftKey}`}
           className="rounded-3xl bg-white p-4 card-shadow"
           onSubmit={(e) => {
             e.preventDefault();
@@ -272,11 +387,12 @@ export function HotspotEditor({
               setActive(null);
               setEditing(null);
               setShowMore(false);
+              setDraftTitle("");
             });
           }}
         >
           <div className="text-sm font-semibold">{editing ? "Edit item" : "This box represents the item I'm selling."}</div>
-          <input name="title" required defaultValue={editing?.title} placeholder="Item name, e.g. DeWalt Drill" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
+          <input name="title" required defaultValue={editing?.title ?? draftTitle} placeholder="Item name, e.g. DeWalt Drill" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
           <input name="price" type="number" min="0" step="0.01" defaultValue={editing ? editing.priceCents / 100 : ""} placeholder="Price, e.g. 40" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
           <input name="description" defaultValue={editing?.description} placeholder="Short description, e.g. Good working condition." className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
           <select name="condition" defaultValue={editing?.condition || "GOOD"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3">
@@ -339,7 +455,7 @@ export function HotspotEditor({
 
       <button
         type="button"
-        onClick={() => setActive({ x: 0.4, y: 0.4, width: 0.2, height: 0.2 })}
+        onClick={() => openDraft({ x: 0.4, y: 0.4, width: 0.2, height: 0.2 }, "")}
         className="w-full rounded-2xl bg-white py-3 font-semibold card-shadow"
       >
         + Add Another Item
