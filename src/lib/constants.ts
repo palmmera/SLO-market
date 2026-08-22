@@ -18,6 +18,9 @@ export const MARKETPLACE_DISCLAIMER =
 
 export const SUGGESTED_FIRST_MESSAGE = "Hi, is this still available?";
 
+/** How long an active listing stays live before it expires and needs renewal. */
+export const LISTING_DURATION_DAYS = 30;
+
 export const DELIVERY_RADIUS_OPTIONS = [
   { label: "5 miles", value: 5 },
   { label: "10 miles", value: 10 },

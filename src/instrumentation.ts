@@ -5,12 +5,18 @@ export async function register() {
 
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { purgeExpiredListingImages } = await import("@/lib/cleanup-images");
+    const { expireStaleListings } = await import("@/lib/listing-lifecycle");
     const dayMs = 24 * 60 * 60 * 1000;
 
     const run = () => {
-      purgeExpiredListingImages().catch((err) => {
-        console.error("[cleanup-images]", err);
-      });
+      // Expire stale listings first, then purge images for long-dead ones.
+      expireStaleListings()
+        .catch((err) => console.error("[expire-listings]", err))
+        .finally(() => {
+          purgeExpiredListingImages().catch((err) => {
+            console.error("[cleanup-images]", err);
+          });
+        });
     };
 
     // Once shortly after boot, then about once a day

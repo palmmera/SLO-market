@@ -11,6 +11,12 @@ import { getPlatformSettings } from "@/lib/fees";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
+import { LISTING_DURATION_DAYS } from "@/lib/constants";
+
+/** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */
+function newExpiry() {
+  return new Date(Date.now() + LISTING_DURATION_DAYS * 86_400_000);
+}
 
 async function currentUser() {
   const session = await getSession();
@@ -77,6 +83,7 @@ export async function createListing(formData: FormData) {
       seoTitle,
       seoDescription,
       publishedAt: stripeReady ? new Date() : null,
+      expiresAt: stripeReady ? newExpiry() : null,
     },
   });
 
@@ -216,8 +223,9 @@ export async function updateListing(listingId: string, formData: FormData) {
   const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   const stripeReady =
     Boolean(stripeAccount) && stripeAccount!.status === "PAYOUTS_ENABLED" && Boolean(stripeAccount!.payoutsEnabled);
-  const shouldPublishDraft = existing.status === ListingStatus.DRAFT && stripeReady;
-  const needsStripeOnboarding = existing.status === ListingStatus.DRAFT && !stripeReady;
+  const canGoLive = existing.status === ListingStatus.DRAFT || existing.status === ListingStatus.EXPIRED;
+  const shouldPublishDraft = canGoLive && stripeReady;
+  const needsStripeOnboarding = canGoLive && !stripeReady;
 
   const listing = await prisma.listing.update({
     where: { id: listingId },
@@ -236,7 +244,7 @@ export async function updateListing(listingId: string, formData: FormData) {
       seoTitle,
       seoDescription,
       ...(shouldPublishDraft
-        ? { status: ListingStatus.ACTIVE, publishedAt: existing.publishedAt ?? new Date() }
+        ? { status: ListingStatus.ACTIVE, publishedAt: new Date(), expiresAt: newExpiry() }
         : {}),
     },
   });
@@ -312,6 +320,33 @@ export async function removeListing(listingId: string) {
   revalidatePath("/");
   revalidatePath("/browse");
   if (listing?.slug) revalidatePath(`/listing/${listing.slug}`);
+}
+
+export async function renewListing(listingId: string) {
+  const user = await currentUser();
+  const listing = await prisma.listing.findFirst({
+    where: {
+      id: listingId,
+      sellerId: user.id,
+      status: { in: [ListingStatus.ACTIVE, ListingStatus.EXPIRED] },
+    },
+  });
+  if (!listing) throw new Error("Listing not found.");
+
+  await prisma.listing.update({
+    where: { id: listing.id },
+    data: {
+      status: ListingStatus.ACTIVE,
+      expiresAt: newExpiry(),
+      // Bump to the top of the freshest results on renewal.
+      publishedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/");
+  revalidatePath("/browse");
+  revalidatePath(`/listing/${listing.slug}`);
 }
 
 export async function deleteDraft(listingId: string) {

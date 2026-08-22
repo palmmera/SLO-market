@@ -6,12 +6,13 @@ import { formatMoney, stripeStatusLabel } from "@/lib/utils";
 import { ListingStatus } from "@prisma/client";
 import { ActiveListingRow } from "@/components/active-listing-row";
 import { DraftListingRow } from "@/components/draft-listing-row";
+import { ExpiredListingRow } from "@/components/expired-listing-row";
 
 export default async function SellerDashboard() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const [active, drafts, sold, pending, completed, stripe, sales, enhanced] = await Promise.all([
+  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced] = await Promise.all([
     prisma.listing.findMany({
       where: { sellerId: userId, status: ListingStatus.ACTIVE },
       include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -21,6 +22,11 @@ export default async function SellerDashboard() {
       where: { sellerId: userId, status: ListingStatus.DRAFT },
       include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.listing.findMany({
+      where: { sellerId: userId, status: ListingStatus.EXPIRED },
+      include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+      orderBy: { updatedAt: "desc" },
     }),
     prisma.listing.findMany({ where: { sellerId: userId, status: ListingStatus.SOLD }, take: 20, orderBy: { soldAt: "desc" } }),
     prisma.order.findMany({ where: { sellerId: userId, status: { in: ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] } }, include: { items: true } }),
@@ -84,12 +90,32 @@ export default async function SellerDashboard() {
                 title: l.title,
                 priceCents: l.priceCents,
                 listingType: l.listingType,
+                expiresAt: l.expiresAt ? l.expiresAt.toISOString() : null,
                 images: l.images,
               }}
             />
           ))}
         </div>
       </Section>
+      {expired.length > 0 && (
+        <Section title="Expired Listings">
+          <div className="grid gap-2">
+            {expired.map((l) => (
+              <ExpiredListingRow
+                key={l.id}
+                listing={{
+                  id: l.id,
+                  slug: l.slug,
+                  title: l.title,
+                  priceCents: l.priceCents,
+                  listingType: l.listingType,
+                  images: l.images,
+                }}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
       <Section title="Sold Listings">
         {sold.length === 0 && <Empty />}
         {sold.map((l) => (

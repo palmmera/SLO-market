@@ -40,6 +40,7 @@ enum ListingStatus {
   SOLD
   RESERVED
   REMOVED
+  EXPIRED
 }
 
 enum OrderStatus {
@@ -85,6 +86,7 @@ enum NotificationType {
   PRICE_CHANGE
   LISTING_SOLD
   LISTING_REMOVED
+  LISTING_EXPIRED
   REFUND
   DISPUTE
   STRIPE_ONBOARDING
@@ -262,6 +264,7 @@ model Listing {
   hotspot             ListingHotspot?
   soldAt              DateTime?
   publishedAt         DateTime?
+  expiresAt           DateTime?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -272,6 +275,7 @@ model Listing {
   reports       Report[]
 
   @@index([status, publishedAt])
+  @@index([status, expiresAt])
   @@index([categoryId, status])
   @@index([cityId, status])
   @@index([sellerId])

@@ -4,7 +4,7 @@ import { ListingStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getUploadRoot } from "@/lib/storage";
 
-/** After this many days, sold/removed listings keep text but lose photo files. */
+/** After this many days, sold/removed/expired listings keep text but lose photo files. */
 export const IMAGE_RETENTION_DAYS = 90;
 
 export function uploadUrlToAbsolute(url: string | null | undefined): string | null {
@@ -46,7 +46,7 @@ export async function deleteListingImageFiles(
 }
 
 /**
- * Deletes photo files (and DB image rows) for sold/removed listings
+ * Deletes photo files (and DB image rows) for sold/removed/expired listings
  * older than IMAGE_RETENTION_DAYS. Listing title/description stay.
  */
 export async function purgeExpiredListingImages() {
@@ -54,7 +54,7 @@ export async function purgeExpiredListingImages() {
 
   const listings = await prisma.listing.findMany({
     where: {
-      status: { in: [ListingStatus.SOLD, ListingStatus.REMOVED] },
+      status: { in: [ListingStatus.SOLD, ListingStatus.REMOVED, ListingStatus.EXPIRED] },
       images: { some: {} },
       OR: [
         { soldAt: { lte: cutoff } },

@@ -129,7 +129,15 @@ export default async function ListingPage({
                 ? "Wanted"
                 : formatMoney(listing.priceCents)}
           </div>
-          {listing.status !== "ACTIVE" && <p className="font-semibold text-clay">{listing.status === "SOLD" ? "Sold" : listing.status}</p>}
+          {listing.status !== "ACTIVE" && (
+            <p className="font-semibold text-clay">
+              {listing.status === "SOLD"
+                ? "Sold"
+                : listing.status === "EXPIRED"
+                  ? "This listing has expired"
+                  : listing.status}
+            </p>
+          )}
           {listing.condition && <p className="text-sm">Condition: {conditionLabel(listing.condition)}</p>}
           <p className="rounded-2xl bg-white p-3 text-sm card-shadow">
             {listing.listingType === "SERVICE"
