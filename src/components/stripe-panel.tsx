@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { connectStripeAccount, openStripeDashboard, refreshStripeStatus, deleteStripeAccount } from "@/actions/orders";
+import { connectStripeAccount, openStripeDashboard } from "@/actions/orders";
 import { stripeStatusLabel } from "@/lib/utils";
 
 export function StripeConnectPanel({
@@ -19,6 +19,8 @@ export function StripeConnectPanel({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
+
+  const isConnected = status === "CONNECTED" || status === "PAYOUTS_ENABLED";
 
   return (
     <div className="rounded-3xl bg-white p-6 card-shadow">
@@ -45,47 +47,9 @@ export function StripeConnectPanel({
       </div>
       {error && <p className="mt-3 text-sm text-clay">{error}</p>}
       <div className="mt-4 grid gap-2">
-        <button
-          disabled={pending || !stripeConfigured}
-          className="rounded-2xl bg-ocean py-3 font-semibold text-white disabled:opacity-50"
-          onClick={() =>
-            start(async () => {
-              setError("");
-              try {
-                const url = await connectStripeAccount();
-                if (!url) {
-                  setError("Could not start Stripe onboarding.");
-                  return;
-                }
-                window.location.href = url;
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not connect Stripe.");
-              }
-            })
-          }
-        >
-          Connect Stripe
-        </button>
-        <button
-          disabled={pending || !stripeConfigured}
-          className="rounded-2xl bg-sand py-3 font-semibold disabled:opacity-50"
-          onClick={() =>
-            start(async () => {
-              setError("");
-              try {
-                await refreshStripeStatus();
-                window.location.reload();
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not refresh status.");
-              }
-            })
-          }
-        >
-          Refresh status
-        </button>
-        {status !== "NOT_CONNECTED" && (
+        {isConnected ? (
           <button
-            disabled={!stripeConfigured}
+            disabled={pending || !stripeConfigured}
             className="rounded-2xl bg-ink py-3 font-semibold text-white disabled:opacity-50"
             onClick={() =>
               start(async () => {
@@ -101,27 +65,27 @@ export function StripeConnectPanel({
           >
             Manage Stripe Account
           </button>
-        )}
-        {status !== "NOT_CONNECTED" && status !== "PAYOUTS_ENABLED" && (
+        ) : (
           <button
             disabled={pending || !stripeConfigured}
-            className="rounded-2xl border-2 border-clay/20 bg-white py-3 font-semibold text-clay disabled:opacity-50"
+            className="rounded-2xl bg-ocean py-3 font-semibold text-white disabled:opacity-50"
             onClick={() =>
               start(async () => {
-                if (!confirm("This will disconnect and delete your Stripe account. You'll need to reconnect. Continue?")) {
-                  return;
-                }
                 setError("");
                 try {
-                  await deleteStripeAccount();
-                  window.location.reload();
+                  const url = await connectStripeAccount();
+                  if (!url) {
+                    setError("Could not start Stripe onboarding.");
+                    return;
+                  }
+                  window.location.href = url;
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "Could not reset Stripe account.");
+                  setError(err instanceof Error ? err.message : "Could not connect Stripe.");
                 }
               })
             }
           >
-            Reset Stripe Account
+            Connect Stripe
           </button>
         )}
       </div>
