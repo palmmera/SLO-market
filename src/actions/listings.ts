@@ -10,6 +10,7 @@ import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 import { getPlatformSettings } from "@/lib/fees";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
+import { deleteListingImageFiles } from "@/lib/cleanup-images";
 
 async function currentUser() {
   const session = await getSession();
@@ -54,7 +55,7 @@ export async function createListing(formData: FormData) {
       title,
       description,
       listingType,
-      condition: listingType === "WANTED" ? null : condition,
+      condition: listingType === "WANTED" || listingType === "SERVICE" ? null : condition,
       priceCents,
       status: stripeReady ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
       sellerId: user.id,
@@ -224,7 +225,7 @@ export async function updateListing(listingId: string, formData: FormData) {
       title,
       description,
       listingType,
-      condition: listingType === "WANTED" ? null : condition,
+      condition: listingType === "WANTED" || listingType === "SERVICE" ? null : condition,
       priceCents,
       categoryId,
       cityId,
@@ -311,6 +312,20 @@ export async function removeListing(listingId: string) {
   revalidatePath("/");
   revalidatePath("/browse");
   if (listing?.slug) revalidatePath(`/listing/${listing.slug}`);
+}
+
+export async function deleteDraft(listingId: string) {
+  const user = await currentUser();
+  const listing = await prisma.listing.findFirst({
+    where: { id: listingId, sellerId: user.id, status: ListingStatus.DRAFT },
+    include: { images: { select: { url: true, thumbnailUrl: true } } },
+  });
+  if (!listing) throw new Error("Draft not found.");
+
+  await deleteListingImageFiles(listing.images);
+  await prisma.listing.delete({ where: { id: listing.id } });
+
+  revalidatePath("/dashboard");
 }
 
 export async function startMessage(listingId: string, body: string) {

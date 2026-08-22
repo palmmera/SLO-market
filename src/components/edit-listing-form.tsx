@@ -202,11 +202,12 @@ export function EditListingForm({
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">Listing type</h2>
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             ["FOR_SALE", "For Sale"],
             ["FREE", "Free"],
             ["WANTED", "Wanted"],
+            ["SERVICE", "Service"],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -220,7 +221,7 @@ export function EditListingForm({
         </div>
         {listingType !== "WANTED" && listingType !== "FREE" && (
           <label className="mt-4 block">
-            <span className="text-sm font-medium">Price</span>
+            <span className="text-sm font-medium">{listingType === "SERVICE" ? "Rate / Price" : "Price"}</span>
             <input
               name="price"
               type="number"
@@ -234,9 +235,14 @@ export function EditListingForm({
         )}
         {listingType === "FREE" && <p className="mt-3 font-display text-2xl text-ocean">FREE</p>}
         {listingType === "WANTED" && <p className="mt-3 text-sm text-muted">Describe what you are looking for. No price required.</p>}
+        {listingType === "SERVICE" && (
+          <p className="mt-3 text-sm text-muted">
+            Offer a local service. Buyers will message you to arrange details.
+          </p>
+        )}
       </section>
 
-      {listingType !== "WANTED" && (
+      {listingType !== "WANTED" && listingType !== "SERVICE" && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">Condition</h2>
           <select
@@ -277,50 +283,52 @@ export function EditListingForm({
         </select>
       </section>
 
-      <section className="rounded-3xl bg-white p-5 card-shadow">
-        <h2 className="font-semibold">How will the buyer receive the item?</h2>
-        <div className="mt-3 grid gap-2">
-          <label className={`rounded-2xl p-4 ${fulfillment === "PICKUP_ONLY" ? "bg-ocean-light" : "bg-sand"}`}>
-            <input type="radio" className="mr-2" checked={fulfillment === "PICKUP_ONLY"} onChange={() => setFulfillment("PICKUP_ONLY")} />
-            Pickup Only
-          </label>
-          <label className={`rounded-2xl p-4 ${fulfillment === "LOCAL_DELIVERY" ? "bg-ocean-light" : "bg-sand"}`}>
-            <input type="radio" className="mr-2" checked={fulfillment === "LOCAL_DELIVERY"} onChange={() => setFulfillment("LOCAL_DELIVERY")} />
-            I Can Deliver Locally
-          </label>
-        </div>
-        {fulfillment === "PICKUP_ONLY" && (
-          <p className="mt-3 text-sm text-muted">Pickup Only. After purchase, use SLO Market messages to arrange a public meetup. Your exact address stays private.</p>
-        )}
-        {fulfillment === "LOCAL_DELIVERY" && (
-          <div className="mt-4 grid gap-3">
-            <select
-              name="deliveryRadiusMiles"
-              defaultValue={String(listing.deliveryRadiusMiles ?? 10)}
-              className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
-            >
-              {DELIVERY_RADIUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-              <option value="30">Custom / 30 miles</option>
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="freeDelivery" defaultChecked={listing.freeDelivery} /> Free Local Delivery
+      {listingType !== "SERVICE" && (
+        <section className="rounded-3xl bg-white p-5 card-shadow">
+          <h2 className="font-semibold">How will the buyer receive the item?</h2>
+          <div className="mt-3 grid gap-2">
+            <label className={`rounded-2xl p-4 ${fulfillment === "PICKUP_ONLY" ? "bg-ocean-light" : "bg-sand"}`}>
+              <input type="radio" className="mr-2" checked={fulfillment === "PICKUP_ONLY"} onChange={() => setFulfillment("PICKUP_ONLY")} />
+              Pickup Only
             </label>
-            <input
-              name="deliveryFee"
-              type="number"
-              min="0"
-              step="0.01"
-              defaultValue={listing.freeDelivery ? 0 : (listing.deliveryFeeCents / 100).toFixed(2)}
-              placeholder="Delivery fee (leave 0 for free)"
-              className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
-            />
+            <label className={`rounded-2xl p-4 ${fulfillment === "LOCAL_DELIVERY" ? "bg-ocean-light" : "bg-sand"}`}>
+              <input type="radio" className="mr-2" checked={fulfillment === "LOCAL_DELIVERY"} onChange={() => setFulfillment("LOCAL_DELIVERY")} />
+              I Can Deliver Locally
+            </label>
           </div>
-        )}
-      </section>
+          {fulfillment === "PICKUP_ONLY" && (
+            <p className="mt-3 text-sm text-muted">Pickup Only. After purchase, use SLO Market messages to arrange a public meetup. Your exact address stays private.</p>
+          )}
+          {fulfillment === "LOCAL_DELIVERY" && (
+            <div className="mt-4 grid gap-3">
+              <select
+                name="deliveryRadiusMiles"
+                defaultValue={String(listing.deliveryRadiusMiles ?? 10)}
+                className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+              >
+                {DELIVERY_RADIUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+                <option value="30">Custom / 30 miles</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="freeDelivery" defaultChecked={listing.freeDelivery} /> Free Local Delivery
+              </label>
+              <input
+                name="deliveryFee"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={listing.freeDelivery ? 0 : (listing.deliveryFeeCents / 100).toFixed(2)}
+                placeholder="Delivery fee (leave 0 for free)"
+                className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+              />
+            </div>
+          )}
+        </section>
+      )}
 
       {error && <p className="text-sm text-clay">{error}</p>}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">

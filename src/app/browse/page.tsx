@@ -70,10 +70,11 @@ export default async function BrowsePage({
           ))}
         </select>
         <select name="type" defaultValue={listingType} className="rounded-xl border border-sand-dark bg-sand px-3 py-2.5 text-sm">
-          <option value="">For sale, free & wanted</option>
+          <option value="">All listing types</option>
           <option value="FOR_SALE">For Sale</option>
           <option value="FREE">Free</option>
           <option value="WANTED">Wanted</option>
+          <option value="SERVICE">Services</option>
         </select>
         <select name="sort" defaultValue={sort} className="rounded-xl border border-sand-dark bg-sand px-3 py-2.5 text-sm">
           <option value="newest">Newest</option>

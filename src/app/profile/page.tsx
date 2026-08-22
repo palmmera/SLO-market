@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { updateProfile } from "@/actions/profile";
 import { initials } from "@/lib/utils";
+import { LogoutButton } from "@/components/logout-button";
 
 export default async function ProfilePage() {
   const session = await getSession();
@@ -75,13 +76,5 @@ export default async function ProfilePage() {
       )}
       <LogoutButton />
     </div>
-  );
-}
-
-function LogoutButton() {
-  return (
-    <a href="/api/auth/signout" className="mt-6 block rounded-2xl bg-white py-3 text-center font-semibold card-shadow">
-      Sign out
-    </a>
   );
 }

@@ -35,6 +35,7 @@ export function absoluteUrl(path = "") {
 export function listingTypeLabel(type: string) {
   if (type === "FREE") return "FREE";
   if (type === "WANTED") return "Wanted";
+  if (type === "SERVICE") return "Service";
   return "For Sale";
 }
 

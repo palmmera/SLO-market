@@ -17,6 +17,7 @@ enum ListingType {
   FOR_SALE
   FREE
   WANTED
+  SERVICE
 }
 
 enum Condition {

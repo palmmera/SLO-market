@@ -132,11 +132,13 @@ export default async function ListingPage({
           {listing.status !== "ACTIVE" && <p className="font-semibold text-clay">{listing.status === "SOLD" ? "Sold" : listing.status}</p>}
           {listing.condition && <p className="text-sm">Condition: {conditionLabel(listing.condition)}</p>}
           <p className="rounded-2xl bg-white p-3 text-sm card-shadow">
-            {listing.fulfillment === "PICKUP_ONLY"
-              ? "Pickup Only — arrange a public meetup after purchase. Exact address is not shown."
-              : listing.freeDelivery
-                ? `Free local delivery within ${listing.deliveryRadiusMiles ?? 10} miles`
-                : `Local delivery: ${formatMoney(listing.deliveryFeeCents)} within ${listing.deliveryRadiusMiles ?? 10} miles`}
+            {listing.listingType === "SERVICE"
+              ? "Local service — message the provider to arrange details, scheduling, and payment."
+              : listing.fulfillment === "PICKUP_ONLY"
+                ? "Pickup Only — arrange a public meetup after purchase. Exact address is not shown."
+                : listing.freeDelivery
+                  ? `Free local delivery within ${listing.deliveryRadiusMiles ?? 10} miles`
+                  : `Local delivery: ${formatMoney(listing.deliveryFeeCents)} within ${listing.deliveryRadiusMiles ?? 10} miles`}
           </p>
           {canBuy && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery && (
             <p className="text-sm text-muted">
@@ -146,7 +148,6 @@ export default async function ListingPage({
           )}
           <ListingActions
             listingId={listing.id}
-            slug={listing.slug}
             sellerId={listing.sellerId}
             canBuy={canBuy}
             favorited={favorited}

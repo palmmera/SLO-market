@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { formatMoney, stripeStatusLabel } from "@/lib/utils";
 import { ListingStatus } from "@prisma/client";
 import { ActiveListingRow } from "@/components/active-listing-row";
+import { DraftListingRow } from "@/components/draft-listing-row";
 
 export default async function SellerDashboard() {
   const session = await getSession();
@@ -62,29 +63,12 @@ export default async function SellerDashboard() {
       {drafts.length > 0 && (
         <Section title="Drafts — finish Stripe to publish">
           <div className="grid gap-2">
-            {drafts.map((l) => {
-              const image = l.images[0]?.thumbnailUrl || l.images[0]?.url;
-              return (
-                <Link
-                  key={l.id}
-                  href={`/dashboard/listings/${l.id}/edit`}
-                  className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow"
-                >
-                  <div className="shrink-0 overflow-hidden rounded-xl bg-sand-dark">
-                    {image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={image} alt="" className="h-16 w-16 object-cover" />
-                    ) : (
-                      <div className="flex h-16 w-16 items-center justify-center text-[10px] text-muted">No photo</div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{l.title}</div>
-                    <p className="mt-0.5 text-xs text-muted">Saved as draft — continue to publish</p>
-                  </div>
-                </Link>
-              );
-            })}
+            {drafts.map((l) => (
+              <DraftListingRow
+                key={l.id}
+                listing={{ id: l.id, title: l.title, images: l.images }}
+              />
+            ))}
           </div>
         </Section>
       )}

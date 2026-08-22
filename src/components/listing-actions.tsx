@@ -8,14 +8,12 @@ import { SUGGESTED_FIRST_MESSAGE } from "@/lib/constants";
 
 export function ListingActions({
   listingId,
-  slug,
   sellerId,
   canBuy,
   favorited,
   isOwner,
 }: {
   listingId: string;
-  slug: string;
   sellerId: string;
   canBuy: boolean;
   favorited: boolean;

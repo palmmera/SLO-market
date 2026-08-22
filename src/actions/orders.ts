@@ -191,16 +191,17 @@ export async function refreshStripeStatus() {
         status,
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Stripe account retrieval failed:", err);
-    
-    if (err?.code === "account_invalid" || err?.statusCode === 404) {
+    const stripeError = err as { code?: string; statusCode?: number; message?: string } | undefined;
+
+    if (stripeError?.code === "account_invalid" || stripeError?.statusCode === 404) {
       console.log("Deleting invalid Stripe account record:", record.stripeAccountId);
       await prisma.stripeAccount.delete({ where: { id: record.id } });
       throw new Error("Your Stripe account configuration was outdated and has been removed. Please reconnect your Stripe account.");
     }
-    
-    throw new Error(`Failed to refresh Stripe status: ${err?.message || "Unknown error"}`);
+
+    throw new Error(`Failed to refresh Stripe status: ${stripeError?.message || "Unknown error"}`);
   }
 }
 

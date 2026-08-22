@@ -1,7 +1,25 @@
-import type { NextConfig } from "eslint";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
 
-const eslintConfig = {
-  extends: ["next/core-web-vitals", "next/typescript"],
-};
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "uploads/**",
+      "next-env.d.ts",
+      "prisma/migrations/**",
+    ],
+  },
+];
 
 export default eslintConfig;

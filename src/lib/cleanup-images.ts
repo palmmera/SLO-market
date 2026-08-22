@@ -7,7 +7,7 @@ import { getUploadRoot } from "@/lib/storage";
 /** After this many days, sold/removed listings keep text but lose photo files. */
 export const IMAGE_RETENTION_DAYS = 90;
 
-function uploadUrlToAbsolute(url: string | null | undefined): string | null {
+export function uploadUrlToAbsolute(url: string | null | undefined): string | null {
   if (!url) return null;
   const normalized = url.replace(/\\/g, "/");
   const marker = "/uploads/";
@@ -18,13 +18,30 @@ function uploadUrlToAbsolute(url: string | null | undefined): string | null {
   return path.join(getUploadRoot(), ...relative.split("/").filter(Boolean));
 }
 
-async function tryDeleteFile(filePath: string | null) {
+export async function tryDeleteFile(filePath: string | null) {
   if (!filePath) return false;
   try {
     await unlink(filePath);
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Best-effort removal of the physical files for a set of listing images. */
+export async function deleteListingImageFiles(
+  images: { url: string; thumbnailUrl: string | null }[],
+) {
+  for (const image of images) {
+    await tryDeleteFile(uploadUrlToAbsolute(image.url));
+    if (image.thumbnailUrl && image.thumbnailUrl !== image.url) {
+      await tryDeleteFile(uploadUrlToAbsolute(image.thumbnailUrl));
+    }
+    const displayPath = uploadUrlToAbsolute(image.url);
+    if (displayPath) {
+      const originalPath = displayPath.replace(/\.jpg$/i, "-original.jpg");
+      if (originalPath !== displayPath) await tryDeleteFile(originalPath);
+    }
   }
 }
 

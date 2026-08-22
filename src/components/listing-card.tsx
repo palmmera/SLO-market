@@ -16,7 +16,8 @@ export type ListingCardData = {
 
 export function ListingCard({ listing }: { listing: ListingCardData }) {
   const image = listing.images[0]?.thumbnailUrl || listing.images[0]?.url;
-  const free = listing.listingType === "FREE" || listing.priceCents === 0;
+  const service = listing.listingType === "SERVICE";
+  const free = !service && (listing.listingType === "FREE" || listing.priceCents === 0);
   const wanted = listing.listingType === "WANTED";
 
   return (
@@ -31,6 +32,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
         <div className="absolute left-3 top-3 flex gap-2">
           {listing.isFeatured && <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold text-ink">Featured</span>}
           {wanted && <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold">Wanted</span>}
+          {service && <span className="rounded-full bg-ocean/90 px-2.5 py-1 text-[11px] font-semibold text-white">Service</span>}
         </div>
       </div>
       <div className="p-3.5">
