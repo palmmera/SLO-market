@@ -25,10 +25,10 @@ export default async function SellPage() {
         city is shown publicly, not your address.
       </p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <Link href="/sell" className="rounded-2xl bg-ocean px-4 py-3 text-center font-semibold text-white">
+        <a href="#sell-form" className="rounded-2xl bg-ocean px-4 py-3 text-center font-semibold text-white hover:bg-ocean-dark transition-colors">
           List an item
-        </Link>
-        <Link href="/sell/photo" className="rounded-2xl bg-white px-4 py-3 text-center font-semibold card-shadow">
+        </a>
+        <Link href="/sell/photo" className="rounded-2xl bg-white px-4 py-3 text-center font-semibold card-shadow hover:bg-sand transition-colors">
           Garage sale photo
         </Link>
       </div>
@@ -40,7 +40,7 @@ export default async function SellPage() {
           </Link>
         </div>
       )}
-      <div className="mt-6">
+      <div id="sell-form" className="mt-6">
         <SellForm
           categories={categories}
           cities={cities}

@@ -66,27 +66,31 @@ export function SellForm({
         });
       }}
     >
-      {!stripeReady && (
-        <p className="rounded-2xl bg-gold/20 p-4 text-sm">
-          You can fill in photos and details now. When you publish, you’ll finish connecting Stripe so you can get paid
-          through SLO Market.
-        </p>
-      )}
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">1. Photos</h2>
         <p className="text-sm text-muted">Up to 10 photos. Large, clear pictures sell faster.</p>
-        <input
-          name="photos"
-          type="file"
-          accept="image/*"
-          multiple
-          capture="environment"
-          className="mt-3 w-full text-sm"
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []).slice(0, 10);
-            setPreviews(files.map((f) => URL.createObjectURL(f)));
-          }}
-        />
+        <label className="mt-3 block cursor-pointer">
+          <div className="group relative overflow-hidden rounded-2xl border-2 border-dashed border-sand-dark bg-sand px-4 py-8 text-center transition-all hover:border-ocean hover:bg-ocean-light">
+            <div className="text-sm font-medium text-muted group-hover:text-ocean transition-colors">
+              {previews.length > 0 ? `${previews.length} photo${previews.length > 1 ? 's' : ''} selected` : '📸 Upload Photos'}
+            </div>
+            <div className="mt-1 text-xs text-muted group-hover:text-ocean transition-colors">
+              Click to choose up to 10 images
+            </div>
+          </div>
+          <input
+            name="photos"
+            type="file"
+            accept="image/*"
+            multiple
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []).slice(0, 10);
+              setPreviews(files.map((f) => URL.createObjectURL(f)));
+            }}
+          />
+        </label>
         {previews.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5">
             {previews.map((src) => (
