@@ -54,6 +54,11 @@ function LoginFormInner({ googleEnabled }: { googleEnabled: boolean }) {
       <form onSubmit={onSubmit} className="space-y-4">
         <input name="email" type="email" required placeholder="Email" className="w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
         <input name="password" type="password" required placeholder="Password" className="w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+        <div className="text-right">
+          <Link href="/forgot-password" className="text-sm font-medium text-ocean">
+            Forgot password?
+          </Link>
+        </div>
         {error && <p className="text-sm text-clay">{error}</p>}
         <button disabled={loading} className="w-full rounded-2xl bg-ocean py-3 font-semibold text-white">
           {loading ? "Signing in..." : "Sign in"}

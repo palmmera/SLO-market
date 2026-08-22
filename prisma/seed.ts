@@ -323,9 +323,12 @@ async function main() {
   const slo = await prisma.city.findUnique({ where: { slug: "san-luis-obispo" } });
   const passwordHash = await bcrypt.hash(adminPassword, 12);
 
+  // Only sets the password when creating the admin for the first time. Re-running
+  // the seed (e.g. to add new categories in production) will NOT reset an existing
+  // admin's password.
   await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { role: UserRole.ADMIN, passwordHash },
+    update: { role: UserRole.ADMIN },
     create: {
       email: adminEmail,
       name: "SLO Market Admin",

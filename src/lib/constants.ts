@@ -49,6 +49,8 @@ export const RESERVED_PATHS = new Set([
   "profile",
   "login",
   "register",
+  "forgot-password",
+  "reset-password",
   "listing",
   "listings",
   "collection",

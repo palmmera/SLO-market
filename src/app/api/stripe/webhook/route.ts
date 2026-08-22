@@ -6,6 +6,7 @@ import { ListingStatus, OrderStatus } from "@prisma/client";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
+import { formatMoney } from "@/lib/utils";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
@@ -115,9 +116,40 @@ export async function POST(req: Request) {
       }
       break;
     }
+    case "payout.paid": {
+      const payout = event.data.object as Stripe.Payout;
+      // Connected-account events carry `account`; that's a seller payout.
+      if (event.account) {
+        const acct = await prisma.stripeAccount.findFirst({ where: { stripeAccountId: event.account } });
+        if (acct) {
+          await notify({
+            userId: acct.userId,
+            type: "PAYMENT",
+            title: "Payout sent",
+            body: `A payout of ${formatMoney(payout.amount)} is on its way to your bank account.`,
+            link: "/dashboard",
+          });
+        }
+      }
+      break;
+    }
+    case "payout.failed": {
+      const payout = event.data.object as Stripe.Payout;
+      if (event.account) {
+        const acct = await prisma.stripeAccount.findFirst({ where: { stripeAccountId: event.account } });
+        if (acct) {
+          await notify({
+            userId: acct.userId,
+            type: "PAYMENT",
+            title: "Payout failed",
+            body: `A payout of ${formatMoney(payout.amount)} could not be completed. Please check your bank details in Stripe.`,
+            link: "/dashboard/stripe",
+          });
+        }
+      }
+      break;
+    }
     case "transfer.updated":
-    case "payout.paid":
-    case "payout.failed":
     case "charge.dispute.created":
       break;
     default:

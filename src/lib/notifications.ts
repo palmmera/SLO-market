@@ -1,5 +1,6 @@
 import { NotificationType } from "@prisma/client";
 import { prisma } from "./db";
+import { emailConfigured, sendEmail } from "./email";
 
 export async function notify(input: {
   userId: string;
@@ -19,6 +20,29 @@ export async function notify(input: {
       metadata: input.metadata as object | undefined,
     },
   });
+
+  // Also send a transactional email for these direct, high-value events.
+  // No-ops safely if email isn't configured, and never blocks the notification.
+  if (emailConfigured()) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { email: true },
+      });
+      if (user?.email) {
+        await sendEmail({
+          to: user.email,
+          subject: input.title,
+          heading: input.title,
+          body: input.body,
+          link: input.link,
+          linkLabel: "View on SLO Market",
+        });
+      }
+    } catch (err) {
+      console.error("notify email error:", err);
+    }
+  }
 }
 
 export async function notifyFavoritesListingChange(
