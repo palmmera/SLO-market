@@ -117,25 +117,31 @@ export function InteractivePhotoViewer({
         <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
         {visible.map((item) => {
           const isSelected = selected?.id === item.id;
-          const centerX = (item.x + item.width / 2) * 100;
-          const centerY = (item.y + item.height / 2) * 100;
           return (
             <button
               key={item.id}
               type="button"
+              aria-label={item.title}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => selectItem(item)}
-              className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md transition-transform ${
-                isSelected
-                  ? "scale-110 bg-gold text-ink ring-2 ring-white"
-                  : "bg-gold text-ink hover:scale-105"
-              } ${item.status === "SOLD" ? "opacity-70" : ""}`}
+              className="absolute z-10 cursor-pointer border-0 bg-transparent p-0"
               style={{
-                left: `${centerX}%`,
-                top: `${centerY}%`,
+                left: `${item.x * 100}%`,
+                top: `${item.y * 100}%`,
+                width: `${item.width * 100}%`,
+                height: `${item.height * 100}%`,
               }}
             >
-              {priceTag(item)}
+              {/* Invisible hit area = vendor's box; price tag sits near the top of that area */}
+              <span
+                className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md transition-transform pointer-events-none ${
+                  isSelected
+                    ? "scale-110 bg-gold text-ink ring-2 ring-white"
+                    : "bg-gold text-ink"
+                } ${item.status === "SOLD" ? "opacity-70" : ""}`}
+              >
+                {priceTag(item)}
+              </span>
             </button>
           );
         })}
@@ -199,10 +205,10 @@ export function InteractivePhotoViewer({
               </button>
             )
           )}
-          <p className="mt-4 text-xs text-muted">Tap a price tag in the photo to switch items.</p>
+          <p className="mt-4 text-xs text-muted">Tap an item in the photo (or its price tag) to switch.</p>
         </>
       ) : (
-        <p className="text-sm text-muted">Tap a price tag in the photo to see details.</p>
+        <p className="text-sm text-muted">Tap an item in the photo to see details.</p>
       )}
     </div>
   );
@@ -237,7 +243,7 @@ export function InteractivePhotoViewer({
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
               <span className="hidden text-sm text-white/70 sm:block">
-                Tap a price tag · scroll or use +/− to zoom · drag to pan
+                Tap an item or price tag · scroll or use +/− to zoom · drag to pan
               </span>
               <div className="ml-auto flex items-center gap-1.5">
                 {zoomControls}
