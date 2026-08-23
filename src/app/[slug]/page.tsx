@@ -1,9 +1,22 @@
 import { notFound } from "next/navigation";
 import { prisma, safeDb } from "@/lib/db";
-import { ListingGrid } from "@/components/listing-card";
+import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
+import { getActiveCollections } from "@/lib/listings";
 import { ListingStatus } from "@prisma/client";
 import { RESERVED_PATHS } from "@/lib/constants";
 import type { Metadata } from "next";
+
+function toCollectionCards(rows: Awaited<ReturnType<typeof getActiveCollections>>): CollectionCardData[] {
+  return rows.map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    city: c.city,
+    itemCount: c.listings.length,
+    lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
+    imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
+  }));
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -27,7 +40,7 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
     const listings = await safeDb(
       () =>
         prisma.listing.findMany({
-          where: { status: ListingStatus.ACTIVE, cityId: city.id },
+          where: { status: ListingStatus.ACTIVE, collectionId: null, cityId: city.id },
           include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
           orderBy: { publishedAt: "desc" },
           take: 48,
@@ -53,11 +66,38 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
   if (!category) notFound();
 
   const ids = [category.id, ...category.children.map((c) => c.id)];
+
+  // Garage / photo sales are Collections — show them on the Garage Sale category page.
+  if (category.slug === "garage-sale") {
+    const garageSales = await safeDb(() => getActiveCollections(48), []);
+    const collectionCards = toCollectionCards(garageSales);
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <h1 className="font-display text-4xl">{category.name}</h1>
+        {category.description && <p className="mt-2 text-muted">{category.description}</p>}
+        <p className="mt-3 text-sm text-muted">Tap a price tag on the photo to browse items in each sale.</p>
+        {category.children.length > 0 && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {category.children.map((child) => (
+              <a key={child.id} href={`/${child.slug}`} className="rounded-full bg-white px-3 py-1.5 text-sm card-shadow">
+                {child.name}
+              </a>
+            ))}
+          </div>
+        )}
+        <div className="mt-8">
+          <ListingGrid listings={[]} collections={collectionCards} />
+        </div>
+      </div>
+    );
+  }
+
   const listings = await safeDb(
     () =>
       prisma.listing.findMany({
         where: {
           status: ListingStatus.ACTIVE,
+          collectionId: null,
           ...(category.isFree ? { listingType: "FREE" } : { categoryId: { in: ids } }),
         },
         include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },

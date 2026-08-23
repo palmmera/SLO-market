@@ -43,7 +43,7 @@ export default async function CollectionPage({
         <div>
           <h1 className="font-display text-4xl">{collection.title}</h1>
           <p className="mt-1 text-sm text-muted">
-            Tap an item in the photo — details and price update here. Buy the selected item.
+            Tap a price tag on the photo — details and price update here. Buy the selected item.
           </p>
         </div>
         {isOwner && (

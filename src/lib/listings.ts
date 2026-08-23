@@ -16,11 +16,12 @@ export async function getActiveListings(where: Record<string, unknown> = {}, tak
   });
 }
 
-export async function getActiveCollections(take = 8) {
+export async function getActiveCollections(take = 8, cityId?: string) {
   return prisma.collection.findMany({
     where: {
       status: ListingStatus.ACTIVE,
       listings: { some: { status: ListingStatus.ACTIVE } },
+      ...(cityId ? { cityId } : {}),
     },
     include: {
       city: true,

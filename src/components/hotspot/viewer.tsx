@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
@@ -24,6 +23,10 @@ export type HotspotViewItem = {
 const MAX_SCALE = 6;
 const MIN_SCALE = 1;
 
+function priceTag(item: HotspotViewItem) {
+  return item.status === "SOLD" ? "Sold" : item.markerLabel || formatMoney(item.priceCents);
+}
+
 export function InteractivePhotoViewer({
   imageUrl,
   items,
@@ -40,7 +43,6 @@ export function InteractivePhotoViewer({
   const router = useRouter();
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [more, setMore] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
@@ -56,7 +58,6 @@ export function InteractivePhotoViewer({
 
   function selectItem(item: HotspotViewItem) {
     setSelected(item);
-    setMore(false);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("item", item.slug);
@@ -87,8 +88,7 @@ export function InteractivePhotoViewer({
     e.stopPropagation();
   }
 
-  const canBuy =
-    showBuy && selected && selected.status === "ACTIVE" && selected.priceCents > 0;
+  const canBuy = showBuy && selected && selected.status === "ACTIVE" && selected.priceCents > 0;
 
   const stage = (className: string) => (
     <div
@@ -117,25 +117,25 @@ export function InteractivePhotoViewer({
         <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
         {visible.map((item) => {
           const isSelected = selected?.id === item.id;
+          const centerX = (item.x + item.width / 2) * 100;
+          const centerY = (item.y + item.height / 2) * 100;
           return (
             <button
               key={item.id}
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => selectItem(item)}
-              className={`absolute rounded-md border-2 ${
-                isSelected ? "border-gold bg-gold/20 ring-2 ring-gold" : "border-white/90 bg-black/10"
-              }`}
+              className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md transition-transform ${
+                isSelected
+                  ? "scale-110 bg-gold text-ink ring-2 ring-white"
+                  : "bg-gold text-ink hover:scale-105"
+              } ${item.status === "SOLD" ? "opacity-70" : ""}`}
               style={{
-                left: `${item.x * 100}%`,
-                top: `${item.y * 100}%`,
-                width: `${item.width * 100}%`,
-                height: `${item.height * 100}%`,
+                left: `${centerX}%`,
+                top: `${centerY}%`,
               }}
             >
-              <span className="absolute -top-3 left-1 rounded-full bg-gold px-2 py-0.5 text-[11px] font-bold text-ink">
-                {item.status === "SOLD" ? "Sold" : item.markerLabel || formatMoney(item.priceCents)}
-              </span>
+              {priceTag(item)}
             </button>
           );
         })}
@@ -182,49 +182,27 @@ export function InteractivePhotoViewer({
           <p className="text-xs uppercase tracking-[0.15em] text-muted">Selected item</p>
           <h2 className="mt-1 font-display text-3xl">{selected.title}</h2>
           <div className="mt-2 text-2xl font-bold text-ocean">
-            {selected.status === "SOLD"
-              ? "Sold"
-              : selected.priceCents === 0
-                ? "FREE"
-                : formatMoney(selected.priceCents)}
+            {selected.status === "SOLD" ? "Sold" : selected.priceCents === 0 ? "FREE" : formatMoney(selected.priceCents)}
           </div>
           {selected.condition && <p className="mt-2 text-sm text-muted">Condition: {selected.condition}</p>}
           <p className="mt-3 text-sm text-muted">{selected.description || "See photo."}</p>
           {selected.status === "SOLD" ? (
             <p className="mt-4 rounded-2xl bg-sand px-4 py-3 text-sm font-semibold">This item has sold.</p>
           ) : (
-            <div className="mt-4 space-y-2">
-              {canBuy && (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/checkout/${selected.id}`)}
-                  className="w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white"
-                >
-                  Buy this item
-                </button>
-              )}
-              {!more ? (
-                <button
-                  type="button"
-                  onClick={() => setMore(true)}
-                  className="w-full rounded-2xl bg-sand py-3 text-sm font-semibold"
-                >
-                  Learn more
-                </button>
-              ) : (
-                <Link
-                  href={`/listing/${selected.slug}`}
-                  className="block w-full rounded-2xl bg-ink py-3 text-center text-sm font-semibold text-white"
-                >
-                  Open full item page
-                </Link>
-              )}
-            </div>
+            canBuy && (
+              <button
+                type="button"
+                onClick={() => router.push(`/checkout/${selected.id}`)}
+                className="mt-4 w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white"
+              >
+                Buy this item
+              </button>
+            )
           )}
-          <p className="mt-4 text-xs text-muted">Tap another tagged item in the photo to switch details.</p>
+          <p className="mt-4 text-xs text-muted">Tap a price tag in the photo to switch items.</p>
         </>
       ) : (
-        <p className="text-sm text-muted">Tap a tagged item in the photo to see its price and details.</p>
+        <p className="text-sm text-muted">Tap a price tag in the photo to see details.</p>
       )}
     </div>
   );
@@ -255,38 +233,38 @@ export function InteractivePhotoViewer({
       </div>
 
       {expanded && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-black/95 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
-            <span className="hidden text-sm text-white/70 sm:block">
-              Tap a tagged item · scroll or use +/− to zoom · drag to pan
-            </span>
-            <div className="ml-auto flex items-center gap-1.5">
-              {zoomControls}
-              <button
-                type="button"
-                onPointerDown={stopControlDrag}
-                onClick={() => {
-                  setExpanded(false);
-                  reset();
-                }}
-                className="flex h-9 items-center gap-1.5 rounded-full bg-white/90 px-3 text-sm font-semibold text-ink shadow"
-                aria-label="Close fullscreen"
-              >
-                <X className="h-4 w-4" />
-                Close
-              </button>
+        <div className="fixed inset-0 z-[60] flex bg-black/95 backdrop-blur-sm">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
+              <span className="hidden text-sm text-white/70 sm:block">
+                Tap a price tag · scroll or use +/− to zoom · drag to pan
+              </span>
+              <div className="ml-auto flex items-center gap-1.5">
+                {zoomControls}
+                <button
+                  type="button"
+                  onPointerDown={stopControlDrag}
+                  onClick={() => {
+                    setExpanded(false);
+                    reset();
+                  }}
+                  className="flex h-9 items-center gap-1.5 rounded-full bg-white/90 px-3 text-sm font-semibold text-ink shadow"
+                  aria-label="Close fullscreen"
+                >
+                  <X className="h-4 w-4" />
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-1 items-center justify-center px-3 pb-3">
+              <div className="relative aspect-[4/3] h-full max-h-full w-full max-w-full overflow-hidden rounded-2xl bg-ink">
+                {stage("h-full w-full")}
+              </div>
             </div>
           </div>
-          <div className="flex flex-1 items-center justify-center px-3 pb-3">
-            <div className="relative aspect-[4/3] w-full max-w-[min(96vw,124vh)] overflow-hidden rounded-2xl bg-ink">
-              {stage("h-full w-full")}
-            </div>
-          </div>
-          {selected && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 p-3">
-              <div className="pointer-events-auto mx-auto max-w-lg">{detailPanel}</div>
-            </div>
-          )}
+          <aside className="w-[min(18rem,38vw)] shrink-0 overflow-y-auto border-l border-white/10 bg-sand/95 p-3 sm:w-[min(22rem,34vw)] sm:p-4">
+            {detailPanel}
+          </aside>
         </div>
       )}
     </>

@@ -29,32 +29,34 @@ export default async function BrowsePage({
     citySlug ? safeDb(() => prisma.city.findUnique({ where: { slug: citySlug } }), null) : null,
   ]);
 
+  const isGarageCategory = category?.slug === "garage-sale";
+
   const [{ items, total }, garageSales] = await Promise.all([
-    safeDb(
-      () =>
-        searchListings({
-          q,
-          categoryId: category?.id,
-          cityId: city?.id,
-          minPrice: Number.isFinite(min) ? min : undefined,
-          maxPrice: Number.isFinite(max) ? max : undefined,
-          condition: condition || undefined,
-          listingType: listingType || undefined,
-          fulfillment: fulfillment || undefined,
-          sort,
-          take: 48,
-        }),
-      { items: [], total: 0 },
-    ),
-    // Only surface garage sales on the default browse (no type filter that excludes them).
-    !listingType
-      ? safeDb(() => getActiveCollections(12), [])
+    isGarageCategory
+      ? Promise.resolve({ items: [], total: 0 })
+      : safeDb(
+          () =>
+            searchListings({
+              q,
+              categoryId: category?.id,
+              cityId: city?.id,
+              minPrice: Number.isFinite(min) ? min : undefined,
+              maxPrice: Number.isFinite(max) ? max : undefined,
+              condition: condition || undefined,
+              listingType: listingType || undefined,
+              fulfillment: fulfillment || undefined,
+              sort,
+              take: 48,
+            }),
+          { items: [], total: 0 },
+        ),
+    !listingType && (!categorySlug || isGarageCategory)
+      ? safeDb(() => getActiveCollections(isGarageCategory ? 48 : 12, city?.id), [])
       : Promise.resolve([]),
   ]);
 
   const collectionCards: CollectionCardData[] = garageSales
     .filter((c) => {
-      if (city && c.cityId !== city.id) return false;
       if (q) {
         const hay = `${c.title}`.toLowerCase();
         return hay.includes(q.toLowerCase());
