@@ -33,6 +33,8 @@ export default async function EditListingPage({
       include: {
         images: { orderBy: { sortOrder: "asc" } },
         category: true,
+        hotspot: true,
+        collection: { include: { images: { take: 1 } } },
       },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
@@ -41,6 +43,15 @@ export default async function EditListingPage({
   ]);
 
   if (!listing) notFound();
+
+  // Garage / photo-sale items are edited on the shared photo editor (add/remove items).
+  if (listing.collectionId && listing.collection) {
+    const imageId = listing.hotspot?.collectionImageId || listing.collection.images[0]?.id;
+    const qs = new URLSearchParams();
+    if (imageId) qs.set("image", imageId);
+    qs.set("category", listing.categoryId);
+    redirect(`/sell/photo/${listing.collectionId}?${qs.toString()}`);
+  }
 
   const stripeReady =
     stripeAccount?.status === "PAYOUTS_ENABLED" && Boolean(stripeAccount.payoutsEnabled);

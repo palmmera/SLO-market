@@ -7,37 +7,73 @@ import { ListingStatus } from "@prisma/client";
 import { ActiveListingRow } from "@/components/active-listing-row";
 import { DraftListingRow } from "@/components/draft-listing-row";
 import { ExpiredListingRow } from "@/components/expired-listing-row";
+import { GarageSaleRow } from "@/components/garage-sale-row";
 
 export default async function SellerDashboard() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced] = await Promise.all([
-    prisma.listing.findMany({
-      where: { sellerId: userId, status: ListingStatus.ACTIVE },
-      include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.listing.findMany({
-      where: { sellerId: userId, status: ListingStatus.DRAFT },
-      include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.listing.findMany({
-      where: { sellerId: userId, status: ListingStatus.EXPIRED },
-      include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.listing.findMany({ where: { sellerId: userId, status: ListingStatus.SOLD }, take: 20, orderBy: { soldAt: "desc" } }),
-    prisma.order.findMany({ where: { sellerId: userId, status: { in: ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] } }, include: { items: true } }),
-    prisma.order.findMany({ where: { sellerId: userId, status: "COMPLETED" }, take: 20 }),
-    prisma.stripeAccount.findUnique({ where: { userId } }),
-    prisma.order.aggregate({
-      where: { sellerId: userId, status: { in: ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "COMPLETED"] } },
-      _sum: { itemPriceCents: true, platformFeeCents: true, sellerPayoutCents: true },
-    }),
-    prisma.enhancedDescriptionPurchase.count({ where: { userId, status: "PAID" } }),
-  ]);
+  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced, garageSales] =
+    await Promise.all([
+      prisma.listing.findMany({
+        where: { sellerId: userId, status: ListingStatus.ACTIVE, collectionId: null },
+        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.listing.findMany({
+        where: { sellerId: userId, status: ListingStatus.DRAFT, collectionId: null },
+        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.listing.findMany({
+        where: { sellerId: userId, status: ListingStatus.EXPIRED, collectionId: null },
+        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.listing.findMany({
+        where: { sellerId: userId, status: ListingStatus.SOLD, collectionId: null },
+        take: 20,
+        orderBy: { soldAt: "desc" },
+      }),
+      prisma.order.findMany({
+        where: {
+          sellerId: userId,
+          status: { in: ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] },
+        },
+        include: { items: true },
+      }),
+      prisma.order.findMany({ where: { sellerId: userId, status: "COMPLETED" }, take: 20 }),
+      prisma.stripeAccount.findUnique({ where: { userId } }),
+      prisma.order.aggregate({
+        where: {
+          sellerId: userId,
+          status: { in: ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY", "COMPLETED"] },
+        },
+        _sum: { itemPriceCents: true, platformFeeCents: true, sellerPayoutCents: true },
+      }),
+      prisma.enhancedDescriptionPurchase.count({ where: { userId, status: "PAID" } }),
+      prisma.collection.findMany({
+        where: {
+          sellerId: userId,
+          status: { in: [ListingStatus.ACTIVE, ListingStatus.DRAFT] },
+        },
+        include: {
+          images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          listings: {
+            where: { status: { in: [ListingStatus.ACTIVE, ListingStatus.DRAFT] } },
+            select: { id: true, categoryId: true },
+            take: 1,
+            orderBy: { createdAt: "asc" },
+          },
+          _count: {
+            select: {
+              listings: { where: { status: { in: [ListingStatus.ACTIVE, ListingStatus.DRAFT] } } },
+            },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+    ]);
 
   const totalSales = sales._sum.itemPriceCents ?? 0;
   const fees = sales._sum.platformFeeCents ?? 0;
@@ -66,20 +102,37 @@ export default async function SellerDashboard() {
           </Link>
         ))}
       </Section>
-      {drafts.length > 0 && (
-        <Section title="Drafts — finish Stripe to publish">
+      {garageSales.length > 0 && (
+        <Section title="Garage / photo sales">
           <div className="grid gap-2">
-            {drafts.map((l) => (
-              <DraftListingRow
-                key={l.id}
-                listing={{ id: l.id, title: l.title, images: l.images }}
+            {garageSales.map((sale) => (
+              <GarageSaleRow
+                key={sale.id}
+                sale={{
+                  id: sale.id,
+                  slug: sale.slug,
+                  title: sale.title,
+                  itemCount: sale._count.listings,
+                  imageId: sale.images[0]?.id ?? null,
+                  imageUrl: sale.images[0]?.displayUrl || sale.images[0]?.originalUrl || null,
+                  categoryId: sale.listings[0]?.categoryId ?? null,
+                }}
               />
             ))}
           </div>
         </Section>
       )}
+      {drafts.length > 0 && (
+        <Section title="Drafts — finish Stripe to publish">
+          <div className="grid gap-2">
+            {drafts.map((l) => (
+              <DraftListingRow key={l.id} listing={{ id: l.id, title: l.title, images: l.images }} />
+            ))}
+          </div>
+        </Section>
+      )}
       <Section title="Active Listings">
-        {active.length === 0 && <Empty />}
+        {active.length === 0 && garageSales.length === 0 && <Empty />}
         <div className="grid gap-2">
           {active.map((l) => (
             <ActiveListingRow

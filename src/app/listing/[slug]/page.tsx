@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { conditionLabel, formatCityCounty, formatMoney, initials } from "@/lib/utils";
@@ -47,6 +47,11 @@ export default async function ListingPage({
     },
   });
   if (!listing || listing.status === ListingStatus.REMOVED) notFound();
+
+  // Garage-sale child items open on the shared collection page (one photo, selectable items).
+  if (listing.collectionId && listing.collection?.slug) {
+    redirect(`/collection/${listing.collection.slug}?item=${listing.slug}`);
+  }
 
   await prisma.listing.update({ where: { id: listing.id }, data: { viewCount: { increment: 1 } } });
 

@@ -8,9 +8,29 @@ const listingInclude = {
 
 export async function getActiveListings(where: Record<string, unknown> = {}, take = 8) {
   return prisma.listing.findMany({
-    where: { status: ListingStatus.ACTIVE, ...where },
+    // Garage-sale child items live under a Collection; show the collection card instead.
+    where: { status: ListingStatus.ACTIVE, collectionId: null, ...where },
     include: listingInclude,
     orderBy: { publishedAt: "desc" },
+    take,
+  });
+}
+
+export async function getActiveCollections(take = 8) {
+  return prisma.collection.findMany({
+    where: {
+      status: ListingStatus.ACTIVE,
+      listings: { some: { status: ListingStatus.ACTIVE } },
+    },
+    include: {
+      city: true,
+      images: { orderBy: { sortOrder: "asc" }, take: 1 },
+      listings: {
+        where: { status: ListingStatus.ACTIVE },
+        select: { id: true, priceCents: true },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
     take,
   });
 }
@@ -28,7 +48,7 @@ export async function searchListings(params: {
   take?: number;
   skip?: number;
 }) {
-  const where: Record<string, unknown> = { status: ListingStatus.ACTIVE };
+  const where: Record<string, unknown> = { status: ListingStatus.ACTIVE, collectionId: null };
   if (params.q) {
     where.OR = [
       { title: { contains: params.q, mode: "insensitive" } },

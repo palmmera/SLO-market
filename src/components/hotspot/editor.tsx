@@ -43,12 +43,14 @@ type Handle = "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 export function HotspotEditor({
   collectionId,
+  collectionSlug,
   imageId,
   categoryId,
   imageUrl,
   initialItems,
 }: {
   collectionId: string;
+  collectionSlug: string;
   imageId: string;
   categoryId: string;
   imageUrl: string;
@@ -460,7 +462,11 @@ export function HotspotEditor({
       >
         + Add Another Item
       </button>
-      <button type="button" onClick={() => router.push("/dashboard")} className="w-full rounded-2xl bg-ink py-3 font-semibold text-white">
+      <button
+        type="button"
+        onClick={() => router.push(`/collection/${collectionSlug}`)}
+        className="w-full rounded-2xl bg-ink py-3 font-semibold text-white"
+      >
         Done
       </button>
     </div>

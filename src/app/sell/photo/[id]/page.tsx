@@ -63,6 +63,7 @@ export default async function PhotoEditorPage({
       )}
       <HotspotEditor
         collectionId={collection.id}
+        collectionSlug={collection.slug}
         imageId={image.id}
         categoryId={categoryId}
         imageUrl={image.originalUrl}

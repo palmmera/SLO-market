@@ -1,6 +1,6 @@
 import { prisma, safeDb } from "@/lib/db";
-import { searchListings } from "@/lib/listings";
-import { ListingGrid } from "@/components/listing-card";
+import { getActiveCollections, searchListings } from "@/lib/listings";
+import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
 import { SearchHero } from "@/components/search-hero";
 
 export default async function BrowsePage({
@@ -29,22 +29,47 @@ export default async function BrowsePage({
     citySlug ? safeDb(() => prisma.city.findUnique({ where: { slug: citySlug } }), null) : null,
   ]);
 
-  const { items, total } = await safeDb(
-    () =>
-      searchListings({
-        q,
-        categoryId: category?.id,
-        cityId: city?.id,
-        minPrice: Number.isFinite(min) ? min : undefined,
-        maxPrice: Number.isFinite(max) ? max : undefined,
-        condition: condition || undefined,
-        listingType: listingType || undefined,
-        fulfillment: fulfillment || undefined,
-        sort,
-        take: 48,
-      }),
-    { items: [], total: 0 },
-  );
+  const [{ items, total }, garageSales] = await Promise.all([
+    safeDb(
+      () =>
+        searchListings({
+          q,
+          categoryId: category?.id,
+          cityId: city?.id,
+          minPrice: Number.isFinite(min) ? min : undefined,
+          maxPrice: Number.isFinite(max) ? max : undefined,
+          condition: condition || undefined,
+          listingType: listingType || undefined,
+          fulfillment: fulfillment || undefined,
+          sort,
+          take: 48,
+        }),
+      { items: [], total: 0 },
+    ),
+    // Only surface garage sales on the default browse (no type filter that excludes them).
+    !listingType
+      ? safeDb(() => getActiveCollections(12), [])
+      : Promise.resolve([]),
+  ]);
+
+  const collectionCards: CollectionCardData[] = garageSales
+    .filter((c) => {
+      if (city && c.cityId !== city.id) return false;
+      if (q) {
+        const hay = `${c.title}`.toLowerCase();
+        return hay.includes(q.toLowerCase());
+      }
+      return true;
+    })
+    .map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      title: c.title,
+      city: c.city,
+      itemCount: c.listings.length,
+      lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
+      imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
+    }));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -99,8 +124,10 @@ export default async function BrowsePage({
         <input name="min" type="number" min="0" placeholder="Min $" defaultValue={sp.min ?? ""} className="rounded-xl border border-sand-dark bg-sand px-3 py-2.5 text-sm" />
         <button className="rounded-xl bg-ocean px-3 py-2.5 text-sm font-semibold text-white">Apply filters</button>
       </form>
-      <p className="mb-4 text-sm text-muted">{total} listings across San Luis Obispo County</p>
-      <ListingGrid listings={items} />
+      <p className="mb-4 text-sm text-muted">
+        {total + collectionCards.length} listings across San Luis Obispo County
+      </p>
+      <ListingGrid listings={items} collections={collectionCards} />
     </div>
   );
 }

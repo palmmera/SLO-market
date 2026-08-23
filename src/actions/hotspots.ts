@@ -163,6 +163,29 @@ export async function markHotspotSold(listingId: string) {
   await prisma.listing.update({ where: { id: listingId }, data: { status: ListingStatus.SOLD, soldAt: new Date() } });
 }
 
+export async function removePhotoCollection(collectionId: string) {
+  const user = await currentUser();
+  const collection = await prisma.collection.findFirst({
+    where: { id: collectionId, sellerId: user.id },
+  });
+  if (!collection) throw new Error("Garage sale not found.");
+
+  await prisma.listing.updateMany({
+    where: { collectionId, sellerId: user.id },
+    data: { status: ListingStatus.REMOVED },
+  });
+  await prisma.collection.update({
+    where: { id: collectionId },
+    data: { status: ListingStatus.REMOVED },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/");
+  revalidatePath("/browse");
+  revalidatePath(`/collection/${collection.slug}`);
+  return true;
+}
+
 export async function updateCollectionFulfillment(collectionId: string, fulfillment: FulfillmentMethod, hideSold: boolean) {
   const user = await currentUser();
   await prisma.collection.updateMany({

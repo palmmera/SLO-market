@@ -12,8 +12,19 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       city: true,
       reviewsReceived: { where: { isHidden: false }, include: { reviewer: true } },
       listings: {
-        where: { status: ListingStatus.ACTIVE },
+        where: { status: ListingStatus.ACTIVE, collectionId: null },
         include: { city: true, images: { take: 1, orderBy: { sortOrder: "asc" } } },
+      },
+      collections: {
+        where: {
+          status: ListingStatus.ACTIVE,
+          listings: { some: { status: ListingStatus.ACTIVE } },
+        },
+        include: {
+          city: true,
+          images: { take: 1, orderBy: { sortOrder: "asc" } },
+          listings: { where: { status: ListingStatus.ACTIVE }, select: { priceCents: true } },
+        },
       },
     },
   });
@@ -23,6 +34,16 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     user.reviewsReceived.length === 0
       ? null
       : user.reviewsReceived.reduce((s, r) => s + r.rating, 0) / user.reviewsReceived.length;
+
+  const collectionCards = user.collections.map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    city: c.city,
+    itemCount: c.listings.length,
+    lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
+    imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
+  }));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -42,7 +63,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
             {avg ? ` · ${avg.toFixed(1)}★ (${user.reviewsReceived.length})` : ""}
           </p>
           <p className="text-sm text-muted">
-            {user.listings.length} active · {sold} sold
+            {user.listings.length + user.collections.length} active · {sold} sold
           </p>
         </div>
       </div>
@@ -55,7 +76,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       </form>
       <h2 className="mt-8 font-display text-2xl">Active listings</h2>
       <div className="mt-4">
-        <ListingGrid listings={user.listings} />
+        <ListingGrid listings={user.listings} collections={collectionCards} />
       </div>
       <h2 className="mt-8 font-display text-2xl">Reviews</h2>
       <div className="mt-3 grid gap-2">

@@ -1,15 +1,31 @@
 import Link from "next/link";
 import { SearchHero } from "@/components/search-hero";
 import { CategoryGrid } from "@/components/category-grid";
-import { ListingGrid } from "@/components/listing-card";
+import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
 import { prisma, safeDb } from "@/lib/db";
-import { getActiveListings } from "@/lib/listings";
+import { getActiveCollections, getActiveListings } from "@/lib/listings";
 import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 
+function toCollectionCards(
+  rows: Awaited<ReturnType<typeof getActiveCollections>>,
+): CollectionCardData[] {
+  return rows.map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    city: c.city,
+    itemCount: c.listings.length,
+    lowestPriceCents: c.listings.length
+      ? Math.min(...c.listings.map((l) => l.priceCents))
+      : null,
+    imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
+  }));
+}
+
 export default async function HomePage() {
   const empty: never[] = [];
-  const [categories, cities, recent, produce, free, featured, popular] = await Promise.all([
+  const [categories, cities, recent, produce, free, featured, popular, garageSales] = await Promise.all([
     safeDb(
       () => prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
       empty,
@@ -19,7 +35,7 @@ export default async function HomePage() {
     safeDb(
       () =>
         prisma.listing.findMany({
-          where: { status: ListingStatus.ACTIVE, category: { isProduce: true } },
+          where: { status: ListingStatus.ACTIVE, collectionId: null, category: { isProduce: true } },
           include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
           orderBy: { publishedAt: "desc" },
           take: 8,
@@ -30,7 +46,7 @@ export default async function HomePage() {
     safeDb(
       () =>
         prisma.listing.findMany({
-          where: { status: ListingStatus.ACTIVE, isFeatured: true },
+          where: { status: ListingStatus.ACTIVE, collectionId: null, isFeatured: true },
           include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
           orderBy: { publishedAt: "desc" },
           take: 8,
@@ -40,14 +56,17 @@ export default async function HomePage() {
     safeDb(
       () =>
         prisma.listing.findMany({
-          where: { status: ListingStatus.ACTIVE },
+          where: { status: ListingStatus.ACTIVE, collectionId: null },
           include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
           orderBy: [{ favoriteCount: "desc" }, { viewCount: "desc" }],
           take: 8,
         }),
       empty,
     ),
+    safeDb(() => getActiveCollections(6), empty),
   ]);
+
+  const collectionCards = toCollectionCards(garageSales);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
@@ -60,7 +79,7 @@ export default async function HomePage() {
 
       <section>
         <SectionHead title="Recently Listed" href="/browse?sort=newest" />
-        <ListingGrid listings={recent} />
+        <ListingGrid listings={recent} collections={collectionCards} />
       </section>
 
       <section>
