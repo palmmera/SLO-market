@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 import { formatMoney } from "@/lib/utils";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
@@ -164,7 +165,10 @@ async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) {
   if (!orderId) return;
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: { include: { listing: true } }, seller: { include: { stripeAccount: true } } },
+    include: {
+      items: { include: { listing: { include: { hotspot: true, collection: true } } } },
+      seller: { include: { stripeAccount: true } },
+    },
   });
   if (!order) return;
   const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
@@ -228,6 +232,16 @@ async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) {
       where: { id: item.listingId },
       data: { status: ListingStatus.RESERVED },
     });
+    // Garage / photo-sale tags: flip price chip to Sold as soon as payment clears.
+    if (item.listing.hotspot) {
+      await prisma.listingHotspot.update({
+        where: { listingId: item.listingId },
+        data: { markerLabel: "Sold" },
+      });
+    }
+    if (item.listing.collection?.slug) {
+      revalidatePath(`/collection/${item.listing.collection.slug}`);
+    }
     await notifyFavoritesListingChange(item.listingId, "LISTING_SOLD", "Item reserved", `${item.title} was purchased.`);
   }
   await notify({

@@ -161,6 +161,10 @@ export async function markHotspotSold(listingId: string) {
   const listing = await prisma.listing.findFirst({ where: { id: listingId, sellerId: user.id } });
   if (!listing) throw new Error("Item not found.");
   await prisma.listing.update({ where: { id: listingId }, data: { status: ListingStatus.SOLD, soldAt: new Date() } });
+  await prisma.listingHotspot.updateMany({
+    where: { listingId },
+    data: { markerLabel: "Sold" },
+  });
 }
 
 export async function removePhotoCollection(collectionId: string) {

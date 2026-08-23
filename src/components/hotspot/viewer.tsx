@@ -23,8 +23,12 @@ export type HotspotViewItem = {
 const MAX_SCALE = 6;
 const MIN_SCALE = 1;
 
-function priceTag(item: HotspotViewItem) {
-  return item.status === "SOLD" ? "Sold" : item.markerLabel || formatMoney(item.priceCents);
+function isUnavailable(status: string) {
+  return status === "SOLD" || status === "RESERVED";
+}
+
+function tagLabel(item: HotspotViewItem) {
+  return isUnavailable(item.status) ? "Sold" : item.markerLabel || formatMoney(item.priceCents);
 }
 
 export function InteractivePhotoViewer({
@@ -46,14 +50,17 @@ export function InteractivePhotoViewer({
   const [expanded, setExpanded] = useState(false);
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
-  const visible = useMemo(() => items.filter((i) => !(hideSold && i.status === "SOLD")), [items, hideSold]);
+  const visible = useMemo(
+    () => items.filter((i) => !(hideSold && isUnavailable(i.status))),
+    [items, hideSold],
+  );
 
   const [selected, setSelected] = useState<HotspotViewItem | null>(() => {
     if (initialItemSlug) {
       const match = items.find((i) => i.slug === initialItemSlug);
-      if (match && !(hideSold && match.status === "SOLD")) return match;
+      if (match && !(hideSold && isUnavailable(match.status))) return match;
     }
-    return items.find((i) => !(hideSold && i.status === "SOLD")) ?? null;
+    return items.find((i) => !(hideSold && isUnavailable(i.status))) ?? null;
   });
 
   function selectItem(item: HotspotViewItem) {
@@ -117,6 +124,7 @@ export function InteractivePhotoViewer({
         <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
         {visible.map((item) => {
           const isSelected = selected?.id === item.id;
+          const sold = isUnavailable(item.status);
           return (
             <button
               key={item.id}
@@ -132,15 +140,17 @@ export function InteractivePhotoViewer({
                 height: `${item.height * 100}%`,
               }}
             >
-              {/* Invisible hit area = vendor's box; price tag sits near the top of that area */}
+              {/* Invisible hit area = vendor's box; price / Sold tag sits near the top */}
               <span
                 className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md transition-transform pointer-events-none ${
-                  isSelected
-                    ? "scale-110 bg-gold text-ink ring-2 ring-white"
-                    : "bg-gold text-ink"
-                } ${item.status === "SOLD" ? "opacity-70" : ""}`}
+                  sold
+                    ? `bg-clay text-white ${isSelected ? "scale-110 ring-2 ring-white" : ""}`
+                    : isSelected
+                      ? "scale-110 bg-gold text-ink ring-2 ring-white"
+                      : "bg-gold text-ink"
+                }`}
               >
-                {priceTag(item)}
+                {tagLabel(item)}
               </span>
             </button>
           );
@@ -187,13 +197,17 @@ export function InteractivePhotoViewer({
         <>
           <p className="text-xs uppercase tracking-[0.15em] text-muted">Selected item</p>
           <h2 className="mt-1 font-display text-3xl">{selected.title}</h2>
-          <div className="mt-2 text-2xl font-bold text-ocean">
-            {selected.status === "SOLD" ? "Sold" : selected.priceCents === 0 ? "FREE" : formatMoney(selected.priceCents)}
+          <div className={`mt-2 text-2xl font-bold ${isUnavailable(selected.status) ? "text-clay" : "text-ocean"}`}>
+            {isUnavailable(selected.status)
+              ? "Sold"
+              : selected.priceCents === 0
+                ? "FREE"
+                : formatMoney(selected.priceCents)}
           </div>
           {selected.condition && <p className="mt-2 text-sm text-muted">Condition: {selected.condition}</p>}
           <p className="mt-3 text-sm text-muted">{selected.description || "See photo."}</p>
-          {selected.status === "SOLD" ? (
-            <p className="mt-4 rounded-2xl bg-sand px-4 py-3 text-sm font-semibold">This item has sold.</p>
+          {isUnavailable(selected.status) ? (
+            <p className="mt-4 rounded-2xl bg-clay/10 px-4 py-3 text-sm font-semibold text-clay">This item has sold.</p>
           ) : (
             canBuy && (
               <button
