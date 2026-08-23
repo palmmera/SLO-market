@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPhotoCollection } from "@/actions/hotspots";
 
 export function PhotoSaleStart({
@@ -80,9 +81,17 @@ export function PhotoSaleStart({
         ))}
       </select>
       {error && <p className="text-sm text-clay">{error}</p>}
-      <button disabled={pending} className="w-full rounded-2xl bg-clay py-3 font-semibold text-white">
-        {pending ? "Uploading..." : "Open photo editor"}
-      </button>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Link
+          href="/sell"
+          className="rounded-2xl border-2 border-sand-dark bg-sand py-3 text-center font-semibold text-ink"
+        >
+          Cancel
+        </Link>
+        <button disabled={pending} className="rounded-2xl bg-clay py-3 font-semibold text-white">
+          {pending ? "Uploading..." : "Open photo editor"}
+        </button>
+      </div>
     </form>
   );
 }
