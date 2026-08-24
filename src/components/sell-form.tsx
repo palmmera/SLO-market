@@ -6,7 +6,10 @@ import { Camera, ImageIcon } from "lucide-react";
 import { createListing, startEnhancedDescriptionCheckout } from "@/actions/listings";
 import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
+import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
 import { compressImage } from "@/lib/image-compress";
+import Link from "next/link";
+import { ProduceProductType } from "@prisma/client";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean };
 
@@ -15,16 +18,25 @@ export function SellForm({
   cities,
   defaultCityId,
   stripeReady = false,
+  produceMode = false,
+  defaultParentId,
+  foodSellerActive = false,
 }: {
   categories: Option[];
   cities: Option[];
   defaultCityId?: string;
   stripeReady?: boolean;
+  produceMode?: boolean;
+  defaultParentId?: string;
+  foodSellerActive?: boolean;
 }) {
   const router = useRouter();
   const parents = categories.filter((c) => !c.parentId);
-  const [parentId, setParentId] = useState(parents[0]?.id ?? "");
+  const produceParent = parents.find((p) => p.isProduce);
+  const initialParent = produceMode && defaultParentId ? defaultParentId : parents[0]?.id ?? "";
+  const [parentId, setParentId] = useState(initialParent);
   const children = useMemo(() => categories.filter((c) => c.parentId === parentId), [categories, parentId]);
+  const [produceProductType, setProduceProductType] = useState<ProduceProductType>("FRESH_PRODUCE");
   const [listingType, setListingType] = useState("FOR_SALE");
   const [fulfillment, setFulfillment] = useState("PICKUP_ONLY");
   const [enhanced, setEnhanced] = useState(false);
@@ -34,6 +46,8 @@ export function SellForm({
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const selectedParent = parents.find((p) => p.id === parentId);
+  const isProduceListing = produceMode || Boolean(selectedParent?.isProduce);
+  const showPermitFields = isProduceListing && produceTypeRequiresPermit(produceProductType);
 
   useEffect(() => {
     return () => {
@@ -76,6 +90,10 @@ export function SellForm({
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
         form.set("enhanced", enhanced ? "1" : "0");
+        if (isProduceListing) {
+          form.set("produceProductType", produceProductType);
+          if (produceMode && produceParent) form.set("parentCategoryId", produceParent.id);
+        }
         for (const p of photos) form.append("photos", p.file);
         start(async () => {
           try {
@@ -175,42 +193,88 @@ export function SellForm({
       </section>
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
-        <h2 className="font-semibold">2. Title</h2>
+        <h2 className="font-semibold">{produceMode ? "2. Title" : "2. Title"}</h2>
         <input
           name="title"
           required
-          placeholder="What are you selling?"
+          placeholder={isProduceListing ? "e.g. Heirloom tomatoes, local honey" : "What are you selling?"}
           className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
         />
       </section>
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
-        <h2 className="font-semibold">3. Category</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <h2 className="font-semibold">3. {isProduceListing ? "Product type" : "Category"}</h2>
+        {produceMode ? (
           <select
-            value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
-            className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            name="produceProductType"
+            value={produceProductType}
+            onChange={(e) => setProduceProductType(e.target.value as ProduceProductType)}
+            className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
           >
-            {parents.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {PRODUCE_PRODUCT_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
               </option>
             ))}
           </select>
-          <select name="categoryId" required className="rounded-2xl border border-sand-dark bg-sand px-4 py-3">
-            {(children.length ? children : parents.filter((p) => p.id === parentId)).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {selectedParent?.isProduce && (
-          <p className="mt-3 rounded-xl bg-ocean-light p-3 text-sm text-ocean-dark">
-            Local produce listings must follow California and SLO County rules. Do not list prohibited or unpermitted food
-            items.
+        ) : (
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            >
+              {parents.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {isProduceListing ? (
+              <select
+                name="produceProductType"
+                value={produceProductType}
+                onChange={(e) => setProduceProductType(e.target.value as ProduceProductType)}
+                className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+              >
+                {PRODUCE_PRODUCT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select name="categoryId" required className="rounded-2xl border border-sand-dark bg-sand px-4 py-3">
+                {(children.length ? children : parents.filter((p) => p.id === parentId)).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+        {isProduceListing && !foodSellerActive && (
+          <p className="mt-3 rounded-xl bg-gold/20 p-3 text-sm">
+            Activate Local Food &amp; Produce Seller status before publishing.{" "}
+            <Link href="/dashboard/food-seller" className="font-semibold text-ocean">
+              Complete verification
+            </Link>
           </p>
+        )}
+        {isProduceListing && (
+          <p className="mt-3 rounded-xl bg-ocean-light p-3 text-sm text-ocean-dark">
+            Local produce listings must follow California and SLO County rules. Sellers are responsible for compliance; SLO Marketplace does not inspect or certify food.
+          </p>
+        )}
+        {showPermitFields && (
+          <div className="mt-3 space-y-3 rounded-2xl border border-sand-dark bg-sand/50 p-4">
+            <p className="text-sm font-medium">Permit / registration (when applicable)</p>
+            <input name="listingPermitType" placeholder="Permit / registration type" className="w-full rounded-2xl bg-sand px-4 py-3" />
+            <input name="listingPermitNumber" placeholder="Permit / registration number" className="w-full rounded-2xl bg-sand px-4 py-3" />
+            <input name="listingPermitAgency" placeholder="Issuing agency / county" className="w-full rounded-2xl bg-sand px-4 py-3" />
+            <input name="listingPermitExpiresAt" type="date" className="w-full rounded-2xl bg-sand px-4 py-3" />
+          </div>
         )}
       </section>
 
@@ -258,7 +322,7 @@ export function SellForm({
         )}
       </section>
 
-      {listingType !== "WANTED" && listingType !== "SERVICE" && (
+      {listingType !== "WANTED" && listingType !== "SERVICE" && !isProduceListing && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">5. Condition</h2>
           <select name="condition" defaultValue="GOOD" className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3">

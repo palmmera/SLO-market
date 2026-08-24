@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { saveHotspotItem, deleteHotspotItem, markHotspotSold } from "@/actions/hotspots";
 import { connectStripeAccount } from "@/actions/orders";
 import { HOTSPOT_CONDITIONS } from "@/lib/constants";
+import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
 import { formatMoney } from "@/lib/utils";
+import { ProduceProductType } from "@prisma/client";
 
 type Box = { x: number; y: number; width: number; height: number };
 type Suggestion = { id: string; label: string; score: number; box: Box };
@@ -36,6 +38,7 @@ type Item = {
   description: string;
   condition: string;
   status: string;
+  produceProductType?: string;
   box: Box;
 };
 
@@ -48,6 +51,8 @@ export function HotspotEditor({
   categoryId,
   imageUrl,
   initialItems,
+  mode = "garage",
+  returnPath,
 }: {
   collectionId: string;
   collectionSlug: string;
@@ -55,6 +60,8 @@ export function HotspotEditor({
   categoryId: string;
   imageUrl: string;
   initialItems: Item[];
+  mode?: "garage" | "produce";
+  returnPath?: string;
 }) {
   const router = useRouter();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -69,6 +76,8 @@ export function HotspotEditor({
   const [scanState, setScanState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftKey, setDraftKey] = useState(0);
+  const isProduce = mode === "produce";
+  const stripeReturnPath = returnPath || `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -336,6 +345,8 @@ export function HotspotEditor({
             e.preventDefault();
             const form = new FormData(e.currentTarget);
             start(async () => {
+              const produceProductType = String(form.get("produceProductType") || "FRESH_PRODUCE") as ProduceProductType;
+              const needsPermit = isProduce && produceTypeRequiresPermit(produceProductType);
               const extra = showMore
                 ? {
                     brand: String(form.get("brand") || ""),
@@ -362,11 +373,20 @@ export function HotspotEditor({
                 height: active.height,
                 extra,
                 listingId: editing?.listingId,
+                produceProductType: isProduce ? produceProductType : undefined,
+                permit: needsPermit
+                  ? {
+                      permitType: String(form.get("listingPermitType") || ""),
+                      permitNumber: String(form.get("listingPermitNumber") || ""),
+                      permitAgency: String(form.get("listingPermitAgency") || ""),
+                      permitExpiresAt: String(form.get("listingPermitExpiresAt") || ""),
+                    }
+                  : undefined,
               });
               if ("needsStripeOnboarding" in saved && saved.needsStripeOnboarding) {
                 const url = await connectStripeAccount({
-                  returnPath: `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}&stripe=return`,
-                  refreshPath: `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}&stripe=refresh`,
+                  returnPath: `${stripeReturnPath}&stripe=return`,
+                  refreshPath: `${stripeReturnPath}&stripe=refresh`,
                 });
                 window.location.href = url;
                 return;
@@ -394,20 +414,41 @@ export function HotspotEditor({
           }}
         >
           <div className="text-sm font-semibold">{editing ? "Edit item" : "This box represents the item I'm selling."}</div>
-          <input name="title" required defaultValue={editing?.title ?? draftTitle} placeholder="Item name, e.g. DeWalt Drill" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
-          <input name="price" type="number" min="0" step="0.01" defaultValue={editing ? editing.priceCents / 100 : ""} placeholder="Price, e.g. 40" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
-          <input name="description" defaultValue={editing?.description} placeholder="Short description, e.g. Good working condition." className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
-          <select name="condition" defaultValue={editing?.condition || "GOOD"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3">
-            {HOTSPOT_CONDITIONS.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+          <input name="title" required defaultValue={editing?.title ?? draftTitle} placeholder={isProduce ? "Item name, e.g. Heirloom tomatoes" : "Item name, e.g. DeWalt Drill"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
+          <input name="price" type="number" min="0" step="0.01" defaultValue={editing ? editing.priceCents / 100 : ""} placeholder="Price, e.g. 5" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
+          <input name="description" defaultValue={editing?.description} placeholder={isProduce ? "Short description, e.g. Organic, picked today." : "Short description, e.g. Good working condition."} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
+          {isProduce ? (
+            <select name="produceProductType" defaultValue={editing?.produceProductType || "FRESH_PRODUCE"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3">
+              {PRODUCE_PRODUCT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select name="condition" defaultValue={editing?.condition || "GOOD"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3">
+              {HOTSPOT_CONDITIONS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          )}
+          {isProduce && (
+            <div className="mt-3 space-y-2 rounded-2xl bg-sand/80 p-3 text-sm">
+              <p className="font-medium">Permit / registration (honey, jam, pickled &amp; other)</p>
+              <input name="listingPermitType" placeholder="Permit type (if applicable)" className="w-full rounded-2xl bg-sand px-4 py-3" />
+              <input name="listingPermitNumber" placeholder="Permit number" className="w-full rounded-2xl bg-sand px-4 py-3" />
+              <input name="listingPermitAgency" placeholder="Issuing agency" className="w-full rounded-2xl bg-sand px-4 py-3" />
+              <input name="listingPermitExpiresAt" type="date" className="w-full rounded-2xl bg-sand px-4 py-3" />
+            </div>
+          )}
+          {!isProduce && (
           <button type="button" onClick={() => setShowMore((v) => !v)} className="mt-3 text-sm font-semibold text-ocean">
             {showMore ? "Hide extra details" : "+ Add More Information"}
           </button>
-          {showMore && (
+          )}
+          {!isProduce && showMore && (
             <div className="mt-3 grid gap-2">
               <input name="brand" placeholder="Brand" className="rounded-2xl bg-sand px-4 py-3" />
               <input name="model" placeholder="Model" className="rounded-2xl bg-sand px-4 py-3" />

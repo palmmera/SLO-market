@@ -50,7 +50,11 @@ export default async function EditListingPage({
     const qs = new URLSearchParams();
     if (imageId) qs.set("image", imageId);
     qs.set("category", listing.categoryId);
-    redirect(`/sell/photo/${listing.collectionId}?${qs.toString()}`);
+    const base =
+      listing.collection.type === "PRODUCE_STAND"
+        ? `/sell/food/photo/${listing.collectionId}`
+        : `/sell/photo/${listing.collectionId}`;
+    redirect(`${base}?${qs.toString()}`);
   }
 
   const stripeReady =

@@ -12,6 +12,9 @@ import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
+import { assertFoodSellerForProduce, buildProduceExtraDetails } from "@/actions/food-seller";
+import { resolveProduceCategoryId } from "@/lib/food-seller";
+import { ProduceProductType } from "@prisma/client";
 
 /** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */
 function newExpiry() {
@@ -34,7 +37,7 @@ export async function createListing(formData: FormData) {
 
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const categoryId = String(formData.get("categoryId") || "");
+  let categoryId = String(formData.get("categoryId") || "");
   const cityId = String(formData.get("cityId") || "");
   const listingType = String(formData.get("listingType") || "FOR_SALE") as ListingType;
   const condition = (formData.get("condition") as Condition | null) || null;
@@ -44,11 +47,32 @@ export async function createListing(formData: FormData) {
   const deliveryFee = Number(formData.get("deliveryFee") || 0);
   const freeDelivery = formData.get("freeDelivery") === "on";
   const enhanced = formData.get("enhanced") === "1";
+  const produceProductType = String(formData.get("produceProductType") || "") as ProduceProductType;
 
-  if (!title || !categoryId || !cityId) throw new Error("Title, category, and city are required.");
-  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  if (!title || !cityId) throw new Error("Title and city are required.");
+
+  let category = categoryId
+    ? await prisma.category.findUnique({ where: { id: categoryId }, include: { parent: true } })
+    : null;
+
+  if (produceProductType) {
+    await assertFoodSellerForProduce(user.id);
+    const resolvedId = await resolveProduceCategoryId(produceProductType);
+    if (!resolvedId) throw new Error("Produce category is not configured.");
+    categoryId = resolvedId;
+    category = await prisma.category.findUnique({ where: { id: categoryId }, include: { parent: true } });
+  } else if (!categoryId) {
+    throw new Error("Title, category, and city are required.");
+  }
+
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!category || !city) throw new Error("Please choose a valid category and city.");
+
+  const isProduce =
+    category.isProduce || category.parent?.isProduce || produceProductType;
+  if (isProduce) await assertFoodSellerForProduce(user.id);
+
+  const produceExtra = produceProductType ? buildProduceExtraDetails(formData) : null;
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
   const slug = await uniqueListingSlug(title, city.name);
@@ -61,7 +85,7 @@ export async function createListing(formData: FormData) {
       title,
       description,
       listingType,
-      condition: listingType === "WANTED" || listingType === "SERVICE" ? null : condition,
+      condition: listingType === "WANTED" || listingType === "SERVICE" || isProduce ? null : condition,
       priceCents,
       status: stripeReady ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
       sellerId: user.id,
@@ -72,14 +96,16 @@ export async function createListing(formData: FormData) {
       deliveryFeeCents: fulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
       freeDelivery: fulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
       enhancedDescription: false,
-      extraDetails: enhanced
-        ? {
-            measurements: String(formData.get("measurements") || ""),
-            brand: String(formData.get("brand") || ""),
-            history: String(formData.get("history") || ""),
-            extra: String(formData.get("extra") || ""),
-          }
-        : undefined,
+      extraDetails: produceExtra
+        ? produceExtra
+        : enhanced
+          ? {
+              measurements: String(formData.get("measurements") || ""),
+              brand: String(formData.get("brand") || ""),
+              history: String(formData.get("history") || ""),
+              extra: String(formData.get("extra") || ""),
+            }
+          : undefined,
       seoTitle,
       seoDescription,
       publishedAt: stripeReady ? new Date() : null,

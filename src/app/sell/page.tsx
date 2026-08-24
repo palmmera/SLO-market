@@ -24,12 +24,15 @@ export default async function SellPage() {
         Create a free listing in a few minutes. No monthly seller fees—SLO Market takes 12% only when an item sells. Your
         city is shown publicly, not your address.
       </p>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
         <a href="#sell-form" className="rounded-2xl bg-ocean px-4 py-3 text-center font-semibold text-white hover:bg-ocean-dark transition-colors">
           List an item
         </a>
         <Link href="/sell/photo" className="rounded-2xl bg-white px-4 py-3 text-center font-semibold card-shadow hover:bg-sand transition-colors">
           Garage sale photo
+        </Link>
+        <Link href="/sell/food" className="rounded-2xl bg-white px-4 py-3 text-center font-semibold card-shadow hover:bg-sand transition-colors">
+          Local food &amp; produce
         </Link>
       </div>
       {!stripeReady && (

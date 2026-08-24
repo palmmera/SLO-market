@@ -6,6 +6,9 @@ import { getSession } from "@/lib/auth";
 import { uniqueCollectionSlug, uniqueListingSlug } from "@/lib/slug";
 import { saveListingImage } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
+import { assertFoodSellerForProduce, buildProduceExtraDetails } from "@/actions/food-seller";
+import { resolveProduceCategoryId } from "@/lib/food-seller";
+import { ProduceProductType } from "@prisma/client";
 
 async function currentUser() {
   const session = await getSession();
@@ -21,6 +24,7 @@ export async function createPhotoCollection(formData: FormData) {
   const type = (String(formData.get("type") || "GARAGE_SALE") as CollectionType);
   const photo = formData.get("photo");
   if (!(photo instanceof File) || !photo.size) throw new Error("Please upload a photo.");
+  if (type === "PRODUCE_STAND") await assertFoodSellerForProduce(user.id);
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!city) throw new Error("Choose a city.");
   const saved = await saveListingImage(photo, true);
@@ -60,6 +64,13 @@ export async function saveHotspotItem(input: {
   height: number;
   extra?: Record<string, string>;
   listingId?: string;
+  produceProductType?: ProduceProductType;
+  permit?: {
+    permitType?: string;
+    permitNumber?: string;
+    permitAgency?: string;
+    permitExpiresAt?: string;
+  };
 }) {
   const user = await currentUser();
   const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
@@ -72,24 +83,41 @@ export async function saveHotspotItem(input: {
     include: { city: true },
   });
   if (!collection) throw new Error("Collection not found.");
+  if (collection.type === "PRODUCE_STAND") await assertFoodSellerForProduce(user.id);
   const image = await prisma.collectionImage.findFirst({ where: { id: input.imageId, collectionId: collection.id } });
   if (!image) throw new Error("Photo not found.");
+
+  let categoryId = input.categoryId;
+  if (collection.type === "PRODUCE_STAND" && input.produceProductType) {
+    const resolved = await resolveProduceCategoryId(input.produceProductType);
+    if (resolved) categoryId = resolved;
+  }
+
+  const isProduceStand = collection.type === "PRODUCE_STAND";
+  const extraDetails =
+    isProduceStand && input.produceProductType
+      ? {
+          produceProductType: input.produceProductType,
+          ...(input.permit || {}),
+        }
+      : undefined;
 
   const data = {
     title: input.title,
     description: input.description || "See photo.",
     listingType: input.price > 0 ? ListingType.FOR_SALE : ListingType.FREE,
-    condition: input.condition,
+    condition: isProduceStand ? null : input.condition,
     priceCents: Math.round(input.price * 100),
     status: ListingStatus.ACTIVE,
     sellerId: user.id,
-    categoryId: input.categoryId,
+    categoryId,
     cityId: collection.cityId,
     fulfillment: collection.fulfillment,
     collectionId: collection.id,
     publishedAt: new Date(),
     seoTitle: `${input.title} in ${collection.city.name} | SLO Market`,
     seoDescription: input.description.slice(0, 155),
+    extraDetails,
   };
 
   const listing = input.listingId

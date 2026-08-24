@@ -36,6 +36,48 @@ export async function getActiveCollections(take = 8, cityId?: string) {
   });
 }
 
+export async function getActiveProduceStands(take = 48, cityId?: string) {
+  return prisma.collection.findMany({
+    where: {
+      status: ListingStatus.ACTIVE,
+      type: "PRODUCE_STAND",
+      listings: { some: { status: ListingStatus.ACTIVE } },
+      ...(cityId ? { cityId } : {}),
+    },
+    include: {
+      city: true,
+      images: { orderBy: { sortOrder: "asc" }, take: 1 },
+      listings: {
+        where: { status: ListingStatus.ACTIVE },
+        select: { id: true, priceCents: true },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+    take,
+  });
+}
+
+export async function getActiveGarageSales(take = 48, cityId?: string) {
+  return prisma.collection.findMany({
+    where: {
+      status: ListingStatus.ACTIVE,
+      type: { not: "PRODUCE_STAND" },
+      listings: { some: { status: ListingStatus.ACTIVE } },
+      ...(cityId ? { cityId } : {}),
+    },
+    include: {
+      city: true,
+      images: { orderBy: { sortOrder: "asc" }, take: 1 },
+      listings: {
+        where: { status: ListingStatus.ACTIVE },
+        select: { id: true, priceCents: true },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+    take,
+  });
+}
+
 export async function searchListings(params: {
   q?: string;
   categoryId?: string;

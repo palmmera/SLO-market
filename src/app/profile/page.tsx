@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { updateProfile } from "@/actions/profile";
 import { initials } from "@/lib/utils";
+import { FoodSellerBadge } from "@/components/food-seller-badge";
 import { LogoutButton } from "@/components/logout-button";
 
 export default async function ProfilePage() {
@@ -12,7 +13,7 @@ export default async function ProfilePage() {
   const [user, cities, listings, purchases, sales] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { city: true, stripeAccount: true, reviewsReceived: { where: { isHidden: false } } },
+      include: { city: true, stripeAccount: true, reviewsReceived: { where: { isHidden: false } }, foodSellerProfile: true },
     }),
     prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     prisma.listing.findMany({ where: { sellerId: session.user.id }, orderBy: { createdAt: "desc" }, take: 12 }),
@@ -38,6 +39,7 @@ export default async function ProfilePage() {
         </div>
         <div>
           <h1 className="font-display text-3xl">{user.name}</h1>
+          {user.foodSellerProfile?.status === "ACTIVE" && <FoodSellerBadge className="mt-1" />}
           <p className="text-sm text-muted">
             {user.city?.name} · Member since {user.createdAt.getFullYear()}
             {avg ? ` · ${avg.toFixed(1)}★` : ""}
@@ -50,6 +52,7 @@ export default async function ProfilePage() {
         <Link href="/favorites" className="rounded-2xl bg-white p-3 card-shadow">View favorites</Link>
         <Link href="/dashboard/stripe" className="rounded-2xl bg-white p-3 card-shadow">Manage Stripe</Link>
         <Link href="/notifications" className="rounded-2xl bg-white p-3 card-shadow">Manage notifications</Link>
+        <Link href="/dashboard/food-seller" className="rounded-2xl bg-white p-3 card-shadow">Local food seller</Link>
         <Link href={`/u/${user.id}`} className="rounded-2xl bg-white p-3 card-shadow">Public profile</Link>
       </div>
       <form action={updateProfile} className="mt-6 space-y-3 rounded-3xl bg-white p-5 card-shadow">

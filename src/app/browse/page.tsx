@@ -1,5 +1,5 @@
 import { prisma, safeDb } from "@/lib/db";
-import { getActiveCollections, searchListings } from "@/lib/listings";
+import { getActiveGarageSales, getActiveProduceStands, searchListings } from "@/lib/listings";
 import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
 import { SearchHero } from "@/components/search-hero";
 
@@ -30,8 +30,9 @@ export default async function BrowsePage({
   ]);
 
   const isGarageCategory = category?.slug === "garage-sale";
+  const isProduceCategory = Boolean(category?.isProduce);
 
-  const [{ items, total }, garageSales] = await Promise.all([
+  const [{ items, total }, photoSales, produceListings] = await Promise.all([
     isGarageCategory
       ? Promise.resolve({ items: [], total: 0 })
       : safeDb(
@@ -51,11 +52,33 @@ export default async function BrowsePage({
           { items: [], total: 0 },
         ),
     !listingType && (!categorySlug || isGarageCategory)
-      ? safeDb(() => getActiveCollections(isGarageCategory ? 48 : 12, city?.id), [])
-      : Promise.resolve([]),
+      ? safeDb(() => getActiveGarageSales(isGarageCategory ? 48 : 12, city?.id), [])
+      : !listingType && isProduceCategory
+        ? safeDb(() => getActiveProduceStands(48, city?.id), [])
+        : Promise.resolve([]),
+    isProduceCategory
+      ? safeDb(
+          () =>
+            searchListings({
+              q,
+              categoryId: category?.id,
+              cityId: city?.id,
+              minPrice: Number.isFinite(min) ? min : undefined,
+              maxPrice: Number.isFinite(max) ? max : undefined,
+              listingType: listingType || undefined,
+              fulfillment: fulfillment || undefined,
+              sort,
+              take: 48,
+            }),
+          { items: [], total: 0 },
+        )
+      : Promise.resolve({ items: [], total: 0 }),
   ]);
 
-  const collectionCards: CollectionCardData[] = garageSales
+  const listingItems = isProduceCategory ? produceListings.items : items;
+  const listingTotal = isProduceCategory ? produceListings.total : total;
+
+  const collectionCards: CollectionCardData[] = photoSales
     .filter((c) => {
       if (q) {
         const hay = `${c.title}`.toLowerCase();
@@ -127,9 +150,9 @@ export default async function BrowsePage({
         <button className="rounded-xl bg-ocean px-3 py-2.5 text-sm font-semibold text-white">Apply filters</button>
       </form>
       <p className="mb-4 text-sm text-muted">
-        {total + collectionCards.length} listings across San Luis Obispo County
+        {listingTotal + collectionCards.length} listings across San Luis Obispo County
       </p>
-      <ListingGrid listings={items} collections={collectionCards} />
+      <ListingGrid listings={listingItems} collections={collectionCards} />
     </div>
   );
 }

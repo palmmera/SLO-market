@@ -106,6 +106,33 @@ enum CollectionType {
   OTHER
 }
 
+enum FoodSellerStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum FoodProductionSource {
+  GROW_MYSELF
+  HOME_PRODUCTION
+  COMMERCIAL_FACILITY
+  RESELL
+  OTHER
+}
+
+enum PermitRequiredAnswer {
+  YES
+  NO
+  UNSURE
+}
+
+enum ProduceProductType {
+  FRESH_PRODUCE
+  HONEY
+  JAM_JELLY
+  PICKLED_PRESERVED
+  OTHER
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -146,9 +173,48 @@ model User {
   enhancedPurchases     EnhancedDescriptionPurchase[]
   auditLogs             AuditLog[]
   passwordResetTokens   PasswordResetToken[]
+  foodSellerProfile     FoodSellerProfile?
 
   @@index([email])
   @@index([cityId])
+}
+
+model FoodSellerProfile {
+  id                        String               @id @default(cuid())
+  userId                    String               @unique
+  user                      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName                  String
+  businessName              String?
+  cityId                    String
+  city                      City                 @relation(fields: [cityId], references: [id])
+  email                     String
+  phone                     String
+  productTypes              String[]
+  otherProductDesc          String?
+  productionSource          FoodProductionSource
+  productionSourceOther     String?
+  permitRequired            PermitRequiredAnswer
+  permitType                String?
+  permitNumber              String?
+  permitAgency              String?
+  permitExpiresAt           DateTime?
+  permitDocumentUrl         String?
+  certCompliance            Boolean
+  certCottageFood           Boolean
+  certNoProhibited          Boolean
+  certLabeling              Boolean
+  certRemoveNonCompliant    Boolean
+  certOwner                 Boolean
+  certMarketplaceDisclaimer Boolean
+  certTerms                 Boolean
+  policyVersion             String               @default("2026-08-24")
+  status                    FoodSellerStatus     @default(ACTIVE)
+  verifiedAt                DateTime             @default(now())
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+
+  @@index([cityId])
+  @@index([status])
 }
 
 model PasswordResetToken {
@@ -209,9 +275,10 @@ model City {
   sortOrder   Int          @default(0)
   seoTitle    String?
   seoDescription String?
-  users       User[]
-  listings    Listing[]
-  collections Collection[]
+  users              User[]
+  listings           Listing[]
+  collections        Collection[]
+  foodSellerProfiles FoodSellerProfile[]
 }
 
 model Category {

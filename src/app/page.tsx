@@ -3,12 +3,12 @@ import { SearchHero } from "@/components/search-hero";
 import { CategoryGrid } from "@/components/category-grid";
 import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
 import { prisma, safeDb } from "@/lib/db";
-import { getActiveCollections, getActiveListings } from "@/lib/listings";
+import { getActiveGarageSales, getActiveListings, getActiveProduceStands } from "@/lib/listings";
 import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 
 function toCollectionCards(
-  rows: Awaited<ReturnType<typeof getActiveCollections>>,
+  rows: Awaited<ReturnType<typeof getActiveGarageSales>>,
 ): CollectionCardData[] {
   return rows.map((c) => ({
     id: c.id,
@@ -25,7 +25,7 @@ function toCollectionCards(
 
 export default async function HomePage() {
   const empty: never[] = [];
-  const [categories, cities, recent, produce, free, featured, popular, garageSales] = await Promise.all([
+  const [categories, cities, recent, produce, produceStands, free, featured, popular, garageSales] = await Promise.all([
     safeDb(
       () => prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
       empty,
@@ -42,6 +42,7 @@ export default async function HomePage() {
         }),
       empty,
     ),
+    safeDb(() => getActiveProduceStands(4), empty),
     safeDb(() => getActiveListings({ listingType: ListingType.FREE }, 8), empty),
     safeDb(
       () =>
@@ -63,10 +64,11 @@ export default async function HomePage() {
         }),
       empty,
     ),
-    safeDb(() => getActiveCollections(6), empty),
+    safeDb(() => getActiveGarageSales(6), empty),
   ]);
 
   const collectionCards = toCollectionCards(garageSales);
+  const produceStandCards = toCollectionCards(produceStands);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
@@ -95,7 +97,7 @@ export default async function HomePage() {
       <section>
         <SectionHead title="Local Produce" href="/local-produce" />
         <p className="mb-4 text-sm text-muted">Fresh from SLO County gardens and farms. Please follow local produce and cottage-food rules.</p>
-        <ListingGrid listings={produce} />
+        <ListingGrid listings={produce} collections={produceStandCards} />
       </section>
 
       {featured.length > 0 && (
@@ -123,8 +125,8 @@ export default async function HomePage() {
           <Link href="/sell" className="rounded-full bg-white px-5 py-3 font-semibold text-ink">
             Sell Something
           </Link>
-          <Link href="/sell/photo" className="rounded-full border border-white/40 px-5 py-3 font-semibold">
-            Sell from a photo
+          <Link href="/sell/food" className="rounded-full border border-white/40 px-5 py-3 font-semibold">
+            Sell local food
           </Link>
         </div>
       </section>

@@ -94,6 +94,9 @@ export default async function SellerDashboard() {
       <Link href="/dashboard/stripe" className="mt-4 inline-flex rounded-full bg-ocean px-4 py-2 text-sm font-semibold text-white">
         Manage Stripe Account
       </Link>
+      <Link href="/dashboard/food-seller" className="ml-2 mt-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold card-shadow">
+        Local Food Seller
+      </Link>
       <Section title="Pending Orders">
         {pending.length === 0 && <Empty />}
         {pending.map((o) => (
@@ -103,7 +106,7 @@ export default async function SellerDashboard() {
         ))}
       </Section>
       {garageSales.length > 0 && (
-        <Section title="Garage / photo sales">
+        <Section title="Photo sales (garage &amp; produce stands)">
           <div className="grid gap-2">
             {garageSales.map((sale) => (
               <GarageSaleRow
@@ -116,6 +119,7 @@ export default async function SellerDashboard() {
                   imageId: sale.images[0]?.id ?? null,
                   imageUrl: sale.images[0]?.displayUrl || sale.images[0]?.originalUrl || null,
                   categoryId: sale.listings[0]?.categoryId ?? null,
+                  collectionType: sale.type,
                 }}
               />
             ))}

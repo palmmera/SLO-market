@@ -5,7 +5,7 @@ import { absoluteUrl } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ["", "/browse", "/sell", "/safety", "/terms", "/privacy", "/local-produce", "/free-stuff"];
+  const staticPaths = ["", "/browse", "/sell", "/sell/food", "/safety", "/terms", "/privacy", "/food-produce-policy", "/local-produce", "/free-stuff"];
   const staticEntries = staticPaths.map((p) => ({
     url: absoluteUrl(p || "/"),
     changeFrequency: "daily" as const,

@@ -4,12 +4,14 @@ import { ListingGrid } from "@/components/listing-card";
 import { initials } from "@/lib/utils";
 import { ListingStatus } from "@prisma/client";
 import { reportContent } from "@/actions/listings";
+import { FoodSellerBadge } from "@/components/food-seller-badge";
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await prisma.user.findUnique({
     where: { id: (await params).id },
     include: {
       city: true,
+      foodSellerProfile: true,
       reviewsReceived: { where: { isHidden: false }, include: { reviewer: true } },
       listings: {
         where: { status: ListingStatus.ACTIVE, collectionId: null },
@@ -58,6 +60,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
         </div>
         <div>
           <h1 className="font-display text-3xl">{user.name}</h1>
+          {user.foodSellerProfile?.status === "ACTIVE" && <FoodSellerBadge className="mt-1" />}
           <p className="text-sm text-muted">
             {user.city?.name} · Member since {user.createdAt.getFullYear()}
             {avg ? ` · ${avg.toFixed(1)}★ (${user.reviewsReceived.length})` : ""}

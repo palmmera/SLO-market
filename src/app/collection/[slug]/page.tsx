@@ -36,6 +36,9 @@ export default async function CollectionPage({
   const firstCategory = image?.hotspots[0]?.listing.categoryId;
   if (firstCategory) editQs.set("category", firstCategory);
 
+  const isProduceStand = collection.type === "PRODUCE_STAND";
+  const editBase = isProduceStand ? `/sell/food/photo/${collection.id}` : `/sell/photo/${collection.id}`;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <p className="text-xs uppercase tracking-[0.2em] text-ocean">{formatCityCounty(collection.city.name)}</p>
@@ -48,10 +51,10 @@ export default async function CollectionPage({
         </div>
         {isOwner && (
           <Link
-            href={`/sell/photo/${collection.id}?${editQs.toString()}`}
+            href={`${editBase}?${editQs.toString()}`}
             className="rounded-full bg-ocean px-4 py-2 text-sm font-semibold text-white"
           >
-            Edit garage sale
+            {isProduceStand ? "Edit produce stand" : "Edit garage sale"}
           </Link>
         )}
       </div>

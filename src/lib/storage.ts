@@ -111,3 +111,22 @@ export async function saveProfileImage(file: File) {
   await writeFile(path.join(dir, name), out);
   return `/uploads/profiles/${name}`;
 }
+
+const DOC_ALLOWED = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+const DOC_MAX_BYTES = 10 * 1024 * 1024;
+
+export async function saveDocument(file: File) {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (!DOC_ALLOWED.has(type) && !name.match(/\.(pdf|jpe?g|png|webp)$/)) {
+    throw new Error("Please upload a PDF or image document.");
+  }
+  if (file.size > DOC_MAX_BYTES) throw new Error("Documents must be 10MB or smaller.");
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const id = nanoid(12);
+  const ext = name.endsWith(".pdf") ? "pdf" : name.match(/\.(jpe?g|png|webp)$/)?.[0]?.slice(1) || "pdf";
+  const dir = await ensureDir(path.join(getUploadRoot(), "documents"));
+  const fileName = `${id}.${ext}`;
+  await writeFile(path.join(dir, fileName), buffer);
+  return `/uploads/documents/${fileName}`;
+}

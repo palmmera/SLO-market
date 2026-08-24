@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { prisma, safeDb } from "@/lib/db";
 import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
-import { getActiveCollections } from "@/lib/listings";
+import { getActiveGarageSales, getActiveProduceStands } from "@/lib/listings";
 import { ListingStatus } from "@prisma/client";
 import { RESERVED_PATHS } from "@/lib/constants";
 import type { Metadata } from "next";
 
-function toCollectionCards(rows: Awaited<ReturnType<typeof getActiveCollections>>): CollectionCardData[] {
+function toCollectionCards(rows: Awaited<ReturnType<typeof getActiveGarageSales>>): CollectionCardData[] {
   return rows.map((c) => ({
     id: c.id,
     slug: c.slug,
@@ -69,7 +69,7 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
 
   // Garage / photo sales are Collections — show them on the Garage Sale category page.
   if (category.slug === "garage-sale") {
-    const garageSales = await safeDb(() => getActiveCollections(48), []);
+    const garageSales = await safeDb(() => getActiveGarageSales(48), []);
     const collectionCards = toCollectionCards(garageSales);
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -107,13 +107,17 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
     [],
   );
 
+  const produceStands = category.isProduce
+    ? toCollectionCards(await safeDb(() => getActiveProduceStands(48), []))
+    : [];
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-display text-4xl">{category.name}</h1>
       {category.description && <p className="mt-2 text-muted">{category.description}</p>}
       {category.isProduce && (
         <p className="mt-3 rounded-2xl bg-ocean-light px-4 py-3 text-sm text-ocean-dark">
-          Local produce only. Sellers are responsible for following California and San Luis Obispo County rules for agricultural and cottage-food sales. Do not list prohibited items.
+          Local produce only. Sellers are responsible for following California and San Luis Obispo County rules for agricultural and cottage-food sales. SLO Marketplace does not inspect or certify food.
         </p>
       )}
       {category.children.length > 0 && (
@@ -125,7 +129,20 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
           ))}
         </div>
       )}
-      <div className="mt-8">
+      {produceStands.length > 0 && (
+        <>
+          <h2 className="mt-8 font-display text-2xl">Produce stands</h2>
+          <p className="mt-1 text-sm text-muted">Tap a price on the photo to browse items at each stand.</p>
+          <div className="mt-4">
+            <ListingGrid listings={[]} collections={produceStands} />
+          </div>
+        </>
+      )}
+      <h2 className={`font-display text-2xl ${produceStands.length ? "mt-8" : "mt-8"}`}>
+        {produceStands.length ? "Individual listings" : ""}
+      </h2>
+      {!produceStands.length && <div className="mt-8" />}
+      <div className={produceStands.length ? "mt-4" : "mt-8"}>
         <ListingGrid listings={listings} />
       </div>
     </div>
