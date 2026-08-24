@@ -9,7 +9,7 @@ import {
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { saveDocument } from "@/lib/storage";
-import { FOOD_SELLER_POLICY_VERSION } from "@/lib/food-seller";
+import { FOOD_SELLER_POLICY_VERSION, FOOD_SELLER_REQUIRED_MESSAGE } from "@/lib/food-seller";
 
 async function currentUser() {
   const session = await getSession();
@@ -140,11 +140,16 @@ export async function activateFoodSeller(formData: FormData) {
 }
 
 export async function assertFoodSellerForProduce(userId: string) {
-  const profile = await prisma.foodSellerProfile.findFirst({
-    where: { userId, status: FoodSellerStatus.ACTIVE },
-  });
-  if (!profile) {
-    throw new Error("Activate Local Food & Produce Seller status before listing food or produce.");
+  try {
+    const profile = await prisma.foodSellerProfile.findFirst({
+      where: { userId, status: FoodSellerStatus.ACTIVE },
+    });
+    if (!profile) {
+      throw new Error(FOOD_SELLER_REQUIRED_MESSAGE);
+    }
+    return profile;
+  } catch (err) {
+    if (err instanceof Error && err.message === FOOD_SELLER_REQUIRED_MESSAGE) throw err;
+    throw new Error(FOOD_SELLER_REQUIRED_MESSAGE);
   }
-  return profile;
 }

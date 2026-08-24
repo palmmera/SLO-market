@@ -12,8 +12,7 @@ import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
-import { assertFoodSellerForProduce } from "@/actions/food-seller";
-import { buildProduceExtraDetails, resolveProduceCategoryId } from "@/lib/food-seller";
+import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
 
 /** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */
@@ -30,6 +29,18 @@ async function currentUser() {
 }
 
 export async function createListing(formData: FormData) {
+  try {
+    return await createListingInner(formData);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not publish listing.";
+    if (/FoodSellerProfile|does not exist|Unknown arg/i.test(message) || message === FOOD_SELLER_REQUIRED_MESSAGE) {
+      return { error: FOOD_SELLER_REQUIRED_MESSAGE };
+    }
+    return { error: message.length < 180 ? message : "Could not publish listing. Please try again." };
+  }
+}
+
+async function createListingInner(formData: FormData) {
   const user = await currentUser();
   const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   const stripeReady =
@@ -49,28 +60,31 @@ export async function createListing(formData: FormData) {
   const enhanced = formData.get("enhanced") === "1";
   const produceProductType = String(formData.get("produceProductType") || "") as ProduceProductType;
 
-  if (!title || !cityId) throw new Error("Title and city are required.");
+  if (!title || !cityId) return { error: "Title and city are required." };
 
   let category = categoryId
     ? await prisma.category.findUnique({ where: { id: categoryId }, include: { parent: true } })
     : null;
 
   if (produceProductType) {
-    await assertFoodSellerForProduce(user.id);
+    const foodSeller = await getActiveFoodSeller(user.id);
+    if (!foodSeller) return { error: FOOD_SELLER_REQUIRED_MESSAGE };
     const resolvedId = await resolveProduceCategoryId(produceProductType);
-    if (!resolvedId) throw new Error("Produce category is not configured.");
+    if (!resolvedId) return { error: "Produce category is not configured." };
     categoryId = resolvedId;
     category = await prisma.category.findUnique({ where: { id: categoryId }, include: { parent: true } });
   } else if (!categoryId) {
-    throw new Error("Title, category, and city are required.");
+    return { error: "Title, category, and city are required." };
   }
 
   const city = await prisma.city.findUnique({ where: { id: cityId } });
-  if (!category || !city) throw new Error("Please choose a valid category and city.");
+  if (!category || !city) return { error: "Please choose a valid category and city." };
 
-  const isProduce =
-    category.isProduce || category.parent?.isProduce || produceProductType;
-  if (isProduce) await assertFoodSellerForProduce(user.id);
+  const isProduce = Boolean(category.isProduce || category.parent?.isProduce || produceProductType);
+  if (isProduce) {
+    const foodSeller = await getActiveFoodSeller(user.id);
+    if (!foodSeller) return { error: FOOD_SELLER_REQUIRED_MESSAGE };
+  }
 
   const produceExtra = produceProductType ? buildProduceExtraDetails(formData) : null;
 

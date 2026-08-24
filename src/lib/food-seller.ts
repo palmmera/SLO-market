@@ -32,10 +32,17 @@ export function produceTypeRequiresPermit(type: ProduceProductType) {
   return PRODUCE_PRODUCT_TYPES.find((t) => t.value === type)?.requiresPermit ?? false;
 }
 
+export const FOOD_SELLER_REQUIRED_MESSAGE =
+  "Please complete Local Food & Produce Seller verification before listing food or produce. Open Local food & produce to fill out the one-time form.";
+
 export async function getActiveFoodSeller(userId: string) {
-  return prisma.foodSellerProfile.findFirst({
-    where: { userId, status: FoodSellerStatus.ACTIVE },
-  });
+  try {
+    return await prisma.foodSellerProfile.findFirst({
+      where: { userId, status: FoodSellerStatus.ACTIVE },
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function isActiveFoodSeller(userId: string) {

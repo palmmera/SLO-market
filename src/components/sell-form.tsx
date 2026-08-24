@@ -98,6 +98,10 @@ export function SellForm({
         start(async () => {
           try {
             const result = await createListing(form);
+            if ("error" in result && result.error) {
+              setError(result.error);
+              return;
+            }
             if (result.needsStripeOnboarding) {
               const url = await connectStripeAccount({
                 returnPath: `/dashboard/listings/${result.listingId}/edit?stripe=return`,
