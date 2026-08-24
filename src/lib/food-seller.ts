@@ -62,6 +62,23 @@ export type ListingPermitDetails = {
   permitExpiresAt?: string;
 };
 
+export function buildProduceExtraDetails(formData: FormData, existing?: Record<string, unknown> | null) {
+  const produceProductType = String(formData.get("produceProductType") || "") as ProduceProductType;
+  const base = { ...(existing || {}), produceProductType };
+
+  if (!produceProductType || produceProductType === "FRESH_PRODUCE") {
+    return base;
+  }
+
+  return {
+    ...base,
+    permitType: String(formData.get("listingPermitType") || "").trim() || undefined,
+    permitNumber: String(formData.get("listingPermitNumber") || "").trim() || undefined,
+    permitAgency: String(formData.get("listingPermitAgency") || "").trim() || undefined,
+    permitExpiresAt: String(formData.get("listingPermitExpiresAt") || "").trim() || undefined,
+  };
+}
+
 export function parseListingPermitDetails(extraDetails: unknown): ListingPermitDetails {
   if (!extraDetails || typeof extraDetails !== "object") return {};
   const d = extraDetails as Record<string, unknown>;

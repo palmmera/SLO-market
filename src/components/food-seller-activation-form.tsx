@@ -180,9 +180,9 @@ export function FoodSellerActivationForm({
           </label>
           <label className="flex items-start gap-2 rounded-2xl bg-sand p-3">
             <input type="checkbox" name="certTerms" required className="mt-0.5" />
-            I agree to SLO Marketplace&apos;s{" "}
+            I agree to SLO Market&apos;s{" "}
             <Link href="/terms" className="font-semibold text-ocean">
-              Terms &amp; Conditions
+              Terms of Service
             </Link>{" "}
             and{" "}
             <Link href="/food-produce-policy" className="font-semibold text-ocean">

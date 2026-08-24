@@ -1,14 +1,17 @@
+import { LegalDocument } from "@/components/legal-document";
+import { LEGAL_LAST_UPDATED, PRIVACY_SECTIONS } from "@/lib/legal-content";
+
 export default function PrivacyPage() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="font-display text-4xl">Privacy</h1>
-      <div className="mt-6 space-y-4 text-sm leading-6">
-        <p>SLO Market stores account details you provide (name, email, city, profile photo) to operate the marketplace.</p>
-        <p>We do not store credit-card numbers or raw payment credentials. Payments are processed by Stripe.</p>
-        <p>Your exact home address is not required and is not shown on listings. Only your selected city is public.</p>
-        <p>Messages, orders, reports, and reviews are stored so we can operate the service, handle disputes, and keep the community safe.</p>
-        <p>This privacy notice is a working draft and should be reviewed before launch.</p>
-      </div>
-    </div>
+    <LegalDocument
+      title="Privacy Policy"
+      lastUpdated={LEGAL_LAST_UPDATED}
+      intro="This Privacy Policy describes how SLO Market collects, uses, and protects your information."
+      sections={PRIVACY_SECTIONS}
+      relatedLinks={[
+        { href: "/terms", label: "Terms of Service" },
+        { href: "/safety", label: "Community Safety Guidelines" },
+      ]}
+    />
   );
 }

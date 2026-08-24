@@ -33,6 +33,17 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
       {googleEnabled && (
         <>
           <GoogleAuthButton label="Create account with Google" />
+          <p className="text-center text-xs text-muted">
+            By continuing with Google, you agree to our{" "}
+            <Link href="/terms" className="font-semibold text-ocean">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="font-semibold text-ocean">
+              Privacy Policy
+            </Link>
+            .
+          </p>
           <div className="relative py-1 text-center text-sm text-muted">
             <span className="relative z-10 bg-white px-3">or create with email</span>
             <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-sand-dark" />
@@ -43,6 +54,20 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
         <input name="name" required placeholder="Full name" className="w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
         <input name="email" type="email" required placeholder="Email" className="w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
         <input name="password" type="password" minLength={8} required placeholder="Password (8+ characters)" className="w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3" />
+        <label className="flex items-start gap-2 text-sm leading-5">
+          <input name="acceptTerms" type="checkbox" required className="mt-0.5" />
+          <span>
+            I agree to SLO Market&apos;s{" "}
+            <Link href="/terms" className="font-semibold text-ocean">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="font-semibold text-ocean">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
         {error && <p className="text-sm text-clay">{error}</p>}
         <button disabled={loading} className="w-full rounded-2xl bg-ocean py-3 font-semibold text-white">
           {loading ? "Creating account..." : "Create account"}

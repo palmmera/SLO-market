@@ -5,7 +5,6 @@ import {
   FoodProductionSource,
   FoodSellerStatus,
   PermitRequiredAnswer,
-  ProduceProductType,
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -148,21 +147,4 @@ export async function assertFoodSellerForProduce(userId: string) {
     throw new Error("Activate Local Food & Produce Seller status before listing food or produce.");
   }
   return profile;
-}
-
-export function buildProduceExtraDetails(formData: FormData, existing?: Record<string, unknown> | null) {
-  const produceProductType = String(formData.get("produceProductType") || "") as ProduceProductType;
-  const base = { ...(existing || {}), produceProductType };
-
-  if (!produceProductType || produceProductType === "FRESH_PRODUCE") {
-    return base;
-  }
-
-  return {
-    ...base,
-    permitType: String(formData.get("listingPermitType") || "").trim() || undefined,
-    permitNumber: String(formData.get("listingPermitNumber") || "").trim() || undefined,
-    permitAgency: String(formData.get("listingPermitAgency") || "").trim() || undefined,
-    permitExpiresAt: String(formData.get("listingPermitExpiresAt") || "").trim() || undefined,
-  };
 }

@@ -12,8 +12,8 @@ import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
-import { assertFoodSellerForProduce, buildProduceExtraDetails } from "@/actions/food-seller";
-import { resolveProduceCategoryId } from "@/lib/food-seller";
+import { assertFoodSellerForProduce } from "@/actions/food-seller";
+import { buildProduceExtraDetails, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
 
 /** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */

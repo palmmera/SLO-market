@@ -6,7 +6,7 @@ import { getSession } from "@/lib/auth";
 import { uniqueCollectionSlug, uniqueListingSlug } from "@/lib/slug";
 import { saveListingImage } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
-import { assertFoodSellerForProduce, buildProduceExtraDetails } from "@/actions/food-seller";
+import { assertFoodSellerForProduce } from "@/actions/food-seller";
 import { resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
 

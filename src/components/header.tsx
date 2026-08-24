@@ -154,9 +154,10 @@ export function Footer() {
         <div>
           <div className="text-sm font-semibold">Community</div>
           <div className="mt-3 grid gap-2 text-sm text-white/80">
-            <Link href="/safety">Safety Tips</Link>
+            <Link href="/safety">Safety Guidelines</Link>
             <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
+            <Link href="/food-produce-policy">Food Policy</Link>
             <Link href="/san-luis-obispo">San Luis Obispo</Link>
           </div>
         </div>

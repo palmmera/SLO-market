@@ -7,8 +7,12 @@ export async function POST(req: Request) {
   const name = String(form.get("name") || "").trim();
   const email = String(form.get("email") || "").toLowerCase().trim();
   const password = String(form.get("password") || "");
+  const acceptTerms = form.get("acceptTerms") === "on";
   if (!name || !email || password.length < 8) {
     return NextResponse.json({ error: "Please provide a name, email, and 8+ character password." }, { status: 400 });
+  }
+  if (!acceptTerms) {
+    return NextResponse.json({ error: "Please accept the Terms of Service and Privacy Policy." }, { status: 400 });
   }
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
