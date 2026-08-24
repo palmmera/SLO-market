@@ -23,7 +23,8 @@ export function OrderControls({
 
   return (
     <div className="space-y-3">
-      {status === "PAYMENT_PENDING" && (isBuyer || isSeller || isAdmin) && (
+      {/* Payment is confirmed automatically after Stripe — sellers/admins can still force-sync if needed. */}
+      {status === "PAYMENT_PENDING" && (isSeller || isAdmin) && (
         <button
           className="w-full rounded-2xl bg-ocean py-3 font-semibold text-white"
           disabled={pending}
@@ -50,11 +51,6 @@ export function OrderControls({
       {isSeller && (status === "READY_FOR_PICKUP" || status === "SELLER_CONFIRMED") && (
         <button className="w-full rounded-2xl bg-ocean py-3 text-white" disabled={pending} onClick={() => start(() => updateOrderStatus(orderId, "OUT_FOR_DELIVERY"))}>
           Out for delivery
-        </button>
-      )}
-      {isBuyer && ["PAID", "SELLER_CONFIRMED", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(status) && (
-        <button className="w-full rounded-2xl bg-ink py-3 text-white" disabled={pending} onClick={() => start(() => updateOrderStatus(orderId, "COMPLETED"))}>
-          Confirm completion
         </button>
       )}
       {isBuyer && status === "COMPLETED" && (
@@ -101,14 +97,14 @@ export function OrderControls({
           <button className="mt-2 w-full rounded-xl bg-clay py-2 text-sm text-white">Open dispute</button>
         </form>
       )}
-      {(isSeller || isAdmin) && ["PAID", "SELLER_CONFIRMED", "DISPUTED"].includes(status) && (
+      {(isSeller || isAdmin) && ["PAID", "SELLER_CONFIRMED", "COMPLETED", "DISPUTED"].includes(status) && (
         <button className="w-full rounded-2xl bg-sand py-3 text-sm" onClick={() => start(() => refundOrder(orderId, "Seller or admin refund"))}>
           Refund through Stripe
         </button>
       )}
-      {["PAYMENT_PENDING", "PAID"].includes(status) && (
+      {status === "PAYMENT_PENDING" && (isBuyer || isSeller || isAdmin) && (
         <button className="w-full text-sm text-muted" onClick={() => start(() => cancelOrder(orderId, "Cancelled by user"))}>
-          Cancel order
+          Cancel checkout
         </button>
       )}
     </div>

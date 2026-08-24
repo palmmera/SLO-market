@@ -59,6 +59,16 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
     deliveryFeeGoesTo: settings.deliveryFeeGoesTo,
   });
 
+  // Replace abandoned checkouts for this buyer + listing so they don't pile up.
+  await prisma.order.updateMany({
+    where: {
+      buyerId: buyer.id,
+      status: OrderStatus.PAYMENT_PENDING,
+      items: { some: { listingId: listing.id } },
+    },
+    data: { status: OrderStatus.CANCELLED, cancelledAt: new Date(), cancelReason: "Replaced by new checkout" },
+  });
+
   const order = await prisma.order.create({
     data: {
       orderNumber: orderNumber(),

@@ -65,7 +65,7 @@ export default async function OrderPage({
     <div className="mx-auto max-w-lg px-4 py-8">
       {justPaid && (
         <p className="mb-4 rounded-2xl bg-ocean-light p-3 text-sm text-ocean-dark">
-          Payment received. The seller has been notified — arrange pickup or delivery in Messages.
+          Payment received. Arrange pickup or delivery with the seller in Messages.
         </p>
       )}
       {sp.paid === "1" && stillPending && (
