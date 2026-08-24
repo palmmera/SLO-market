@@ -2,12 +2,12 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-import { ListingStatus, OrderStatus } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
-import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
+import { notify } from "@/lib/notifications";
 import { formatMoney } from "@/lib/utils";
-import { revalidatePath } from "next/cache";
+import { fulfillMarketplaceOrder } from "@/lib/fulfill-order";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
@@ -119,7 +119,6 @@ export async function POST(req: Request) {
     }
     case "payout.paid": {
       const payout = event.data.object as Stripe.Payout;
-      // Connected-account events carry `account`; that's a seller payout.
       if (event.account) {
         const acct = await prisma.stripeAccount.findFirst({ where: { stripeAccountId: event.account } });
         if (acct) {
@@ -158,120 +157,4 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ received: true });
-}
-
-async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) {
-  const orderId = session.metadata?.orderId;
-  if (!orderId) return;
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: {
-      items: { include: { listing: { include: { hotspot: true, collection: true } } } },
-      seller: { include: { stripeAccount: true } },
-    },
-  });
-  if (!order) return;
-  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
-  await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      status: OrderStatus.PAID,
-      paidAt: new Date(),
-      stripePaymentIntentId: paymentIntentId,
-    },
-  });
-  await prisma.payment.upsert({
-    where: { orderId: order.id },
-    update: { status: "paid", stripePaymentIntentId: paymentIntentId || session.id, amountCents: order.totalCents },
-    create: {
-      orderId: order.id,
-      stripePaymentIntentId: paymentIntentId || session.id,
-      amountCents: order.totalCents,
-      status: "paid",
-    },
-  });
-  await prisma.platformFee.upsert({
-    where: { orderId: order.id },
-    update: { amountCents: order.platformFeeCents },
-    create: {
-      orderId: order.id,
-      amountCents: order.platformFeeCents,
-      percent: (order.platformFeeCents / Math.max(order.itemPriceCents, 1)) * 100,
-    },
-  });
-  if (order.seller.stripeAccount) {
-    await prisma.payout.upsert({
-      where: { orderId: order.id },
-      update: { status: "pending_stripe", amountCents: order.sellerPayoutCents },
-      create: {
-        orderId: order.id,
-        stripeConnectAccountId: order.seller.stripeAccount.stripeAccountId,
-        amountCents: order.sellerPayoutCents,
-        status: "created_via_direct_charge",
-      },
-    });
-  }
-  await prisma.ledgerEntry.create({
-    data: {
-      orderId: order.id,
-      buyerId: order.buyerId,
-      sellerId: order.sellerId,
-      listingId: order.items[0]?.listingId,
-      itemPriceCents: order.itemPriceCents,
-      deliveryFeeCents: order.deliveryFeeCents,
-      platformCommissionCents: order.platformFeeCents,
-      stripePaymentId: paymentIntentId,
-      stripeConnectAccountId: order.seller.stripeAccount?.stripeAccountId,
-      sellerPayoutCents: order.sellerPayoutCents,
-      status: "PAID",
-      type: "MARKETPLACE_SALE",
-    },
-  });
-  for (const item of order.items) {
-    await prisma.listing.update({
-      where: { id: item.listingId },
-      data: { status: ListingStatus.RESERVED },
-    });
-    // Garage / photo-sale tags: flip price chip to Sold as soon as payment clears.
-    if (item.listing.hotspot) {
-      await prisma.listingHotspot.update({
-        where: { listingId: item.listingId },
-        data: { markerLabel: "Sold" },
-      });
-    }
-    if (item.listing.collection?.slug) {
-      revalidatePath(`/collection/${item.listing.collection.slug}`);
-    }
-    await notifyFavoritesListingChange(item.listingId, "LISTING_SOLD", "Item reserved", `${item.title} was purchased.`);
-  }
-  await notify({
-    userId: order.sellerId,
-    type: "SALE",
-    title: "You made a sale",
-    body: `Order ${order.orderNumber} is paid. Confirm and arrange pickup or delivery.`,
-    link: `/orders/${order.id}`,
-  });
-  await notify({
-    userId: order.buyerId,
-    type: "PURCHASE",
-    title: "Payment received",
-    body: `Your payment for order ${order.orderNumber} went through.`,
-    link: `/orders/${order.id}`,
-  });
-  await prisma.conversation.create({
-    data: {
-      listingId: order.items[0]?.listingId,
-      orderId: order.id,
-      buyerId: order.buyerId,
-      sellerId: order.sellerId,
-      messages: {
-        create: {
-          senderId: order.buyerId,
-          body: "Hi, I just purchased this. Can we arrange pickup or delivery?",
-          listingId: order.items[0]?.listingId,
-          orderId: order.id,
-        },
-      },
-    },
-  });
 }

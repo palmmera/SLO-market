@@ -8,6 +8,8 @@ import { connectedAccountCreateParams, getStripe, stripeConfigured } from "@/lib
 import { orderNumber } from "@/lib/slug";
 import { absoluteUrl } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
+import { fulfillMarketplaceOrder } from "@/lib/fulfill-order";
+import { revalidatePath } from "next/cache";
 
 async function currentUser() {
   const session = await getSession();
@@ -139,6 +141,55 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
   });
 
   return session.url;
+}
+
+/**
+ * After Checkout success, verify the session with Stripe and mark the order paid.
+ * Needed because marketplace sales are direct charges on connected accounts — the
+ * Connect webhook can be delayed or misconfigured, leaving the order stuck on Pending.
+ */
+export async function confirmOrderPayment(orderId: string) {
+  const user = await currentUser();
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { seller: { include: { stripeAccount: true } } },
+  });
+  if (!order) return { ok: false as const, error: "Order not found." };
+  if (order.buyerId !== user.id && order.sellerId !== user.id && user.role !== "ADMIN") {
+    return { ok: false as const, error: "Not allowed." };
+  }
+  if (order.status !== OrderStatus.PAYMENT_PENDING) {
+    return { ok: true as const, status: order.status };
+  }
+  if (!order.stripeCheckoutSessionId) {
+    return { ok: false as const, error: "No Stripe checkout session on this order." };
+  }
+  const connectId = order.seller.stripeAccount?.stripeAccountId;
+  if (!connectId) {
+    return { ok: false as const, error: "Seller Stripe account is missing." };
+  }
+  if (!stripeConfigured()) {
+    return { ok: false as const, error: "Stripe is not configured." };
+  }
+
+  try {
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.retrieve(
+      order.stripeCheckoutSessionId,
+      {},
+      { stripeAccount: connectId },
+    );
+    if (session.payment_status !== "paid" && session.status !== "complete") {
+      return { ok: false as const, error: "Stripe has not marked this payment as paid yet. Try again in a moment." };
+    }
+    await fulfillMarketplaceOrder(session);
+    revalidatePath(`/orders/${order.id}`);
+    return { ok: true as const, status: "PAID" as const };
+  } catch (err) {
+    console.error("[confirmOrderPayment]", err);
+    const message = err instanceof Error ? err.message : "Could not confirm payment.";
+    return { ok: false as const, error: message.length < 180 ? message : "Could not confirm payment with Stripe." };
+  }
 }
 
 export async function connectStripeAccount(opts?: { returnPath?: string; refreshPath?: string }) {

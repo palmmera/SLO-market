@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { leaveReview, openDispute, updateOrderStatus, refundOrder, cancelOrder } from "@/actions/orders";
+import { leaveReview, openDispute, updateOrderStatus, refundOrder, cancelOrder, confirmOrderPayment } from "@/actions/orders";
 import { OrderStatus } from "@prisma/client";
 
 export function OrderControls({
@@ -17,10 +18,25 @@ export function OrderControls({
   isBuyer: boolean;
   isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
 
   return (
     <div className="space-y-3">
+      {status === "PAYMENT_PENDING" && (isBuyer || isSeller || isAdmin) && (
+        <button
+          className="w-full rounded-2xl bg-ocean py-3 font-semibold text-white"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              await confirmOrderPayment(orderId);
+              router.refresh();
+            })
+          }
+        >
+          {pending ? "Checking Stripe…" : "Check payment status"}
+        </button>
+      )}
       {isSeller && status === "PAID" && (
         <button className="w-full rounded-2xl bg-ocean py-3 text-white" disabled={pending} onClick={() => start(() => updateOrderStatus(orderId, "SELLER_CONFIRMED"))}>
           Confirm order
@@ -62,7 +78,7 @@ export function OrderControls({
           <button className="mt-2 w-full rounded-xl bg-ocean py-2 text-white">Submit review</button>
         </form>
       )}
-      {isBuyer && !["COMPLETED", "REFUNDED", "CANCELLED"].includes(status) && (
+      {isBuyer && !["COMPLETED", "REFUNDED", "CANCELLED", "PAYMENT_PENDING"].includes(status) && (
         <form
           className="rounded-2xl bg-sand p-3"
           onSubmit={(e) => {
