@@ -55,8 +55,16 @@ export function StripeConnectPanel({
               start(async () => {
                 setError("");
                 try {
-                  const url = await openStripeDashboard();
-                  window.location.href = url;
+                  const result = await openStripeDashboard();
+                  if ("error" in result && result.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  if (!("url" in result) || !result.url) {
+                    setError("Could not open Stripe.");
+                    return;
+                  }
+                  window.location.href = result.url;
                 } catch (err) {
                   setError(err instanceof Error ? err.message : "Could not open Stripe.");
                 }
@@ -73,12 +81,16 @@ export function StripeConnectPanel({
               start(async () => {
                 setError("");
                 try {
-                  const url = await connectStripeAccount();
-                  if (!url) {
+                  const result = await connectStripeAccount();
+                  if ("error" in result && result.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  if (!("url" in result) || !result.url) {
                     setError("Could not start Stripe onboarding.");
                     return;
                   }
-                  window.location.href = url;
+                  window.location.href = result.url;
                 } catch (err) {
                   setError(err instanceof Error ? err.message : "Could not connect Stripe.");
                 }

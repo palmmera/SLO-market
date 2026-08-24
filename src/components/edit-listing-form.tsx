@@ -118,11 +118,19 @@ export function EditListingForm({
           try {
             const result = await updateListing(listing.id, form);
             if (result.needsStripeOnboarding) {
-              const url = await connectStripeAccount({
+              const stripe = await connectStripeAccount({
                 returnPath: `/dashboard/listings/${listing.id}/edit?stripe=return`,
                 refreshPath: `/dashboard/listings/${listing.id}/edit?stripe=refresh`,
               });
-              window.location.href = url;
+              if ("error" in stripe && stripe.error) {
+                setError(stripe.error);
+                return;
+              }
+              if (!("url" in stripe) || !stripe.url) {
+                setError("Could not start Stripe onboarding. Open Dashboard → Manage Stripe.");
+                return;
+              }
+              window.location.href = stripe.url;
               return;
             }
             router.push(`/listing/${result.slug}`);

@@ -102,12 +102,24 @@ export function SellForm({
               setError(result.error);
               return;
             }
+            if (!("listingId" in result) || !result.listingId) {
+              setError("Could not publish listing.");
+              return;
+            }
             if (result.needsStripeOnboarding) {
-              const url = await connectStripeAccount({
+              const stripe = await connectStripeAccount({
                 returnPath: `/dashboard/listings/${result.listingId}/edit?stripe=return`,
                 refreshPath: `/dashboard/listings/${result.listingId}/edit?stripe=refresh`,
               });
-              window.location.href = url;
+              if ("error" in stripe && stripe.error) {
+                setError(stripe.error);
+                return;
+              }
+              if (!("url" in stripe) || !stripe.url) {
+                setError("Could not start Stripe onboarding. Open Dashboard → Manage Stripe.");
+                return;
+              }
+              window.location.href = stripe.url;
               return;
             }
             if (result.needsEnhancedPayment) {

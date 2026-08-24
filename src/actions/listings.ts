@@ -33,7 +33,7 @@ export async function createListing(formData: FormData) {
     return await createListingInner(formData);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not publish listing.";
-    if (/FoodSellerProfile|does not exist|Unknown arg/i.test(message) || message === FOOD_SELLER_REQUIRED_MESSAGE) {
+    if (/FoodSellerProfile/i.test(message) || message === FOOD_SELLER_REQUIRED_MESSAGE) {
       return { error: FOOD_SELLER_REQUIRED_MESSAGE };
     }
     return { error: message.length < 180 ? message : "Could not publish listing. Please try again." };

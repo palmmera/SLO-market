@@ -384,11 +384,19 @@ export function HotspotEditor({
                   : undefined,
               });
               if ("needsStripeOnboarding" in saved && saved.needsStripeOnboarding) {
-                const url = await connectStripeAccount({
+                const stripe = await connectStripeAccount({
                   returnPath: `${stripeReturnPath}&stripe=return`,
                   refreshPath: `${stripeReturnPath}&stripe=refresh`,
                 });
-                window.location.href = url;
+                if ("error" in stripe && stripe.error) {
+                  alert(stripe.error);
+                  return;
+                }
+                if (!("url" in stripe) || !stripe.url) {
+                  alert("Could not start Stripe onboarding. Open Dashboard → Manage Stripe.");
+                  return;
+                }
+                window.location.href = stripe.url;
                 return;
               }
               if (!("listingId" in saved) || !saved.listingId || !saved.slug) return;

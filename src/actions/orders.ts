@@ -142,32 +142,46 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
 }
 
 export async function connectStripeAccount(opts?: { returnPath?: string; refreshPath?: string }) {
-  const user = await currentUser();
-  if (!stripeConfigured()) throw new Error("Stripe is not configured.");
-  const stripe = getStripe();
-  let record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
-  if (!record) {
-    // Stripe-handles-pricing Express-style account (no $2/MAA Connect account fee).
-    const account = await stripe.accounts.create(
-      connectedAccountCreateParams({ email: user.email, userId: user.id }),
-    );
-    record = await prisma.stripeAccount.create({
-      data: {
-        userId: user.id,
-        stripeAccountId: account.id,
-        status: "SETUP_INCOMPLETE",
-      },
+  try {
+    const user = await currentUser();
+    if (!stripeConfigured()) {
+      return { error: "Stripe is not configured on the server. Add STRIPE_SECRET_KEY and NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, then restart." };
+    }
+    const stripe = getStripe();
+    let record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+    if (!record) {
+      // Standard-type connected account (full dashboard; seller pays Stripe fees; no Express MAA fee).
+      const account = await stripe.accounts.create(
+        connectedAccountCreateParams({ email: user.email, userId: user.id }),
+      );
+      record = await prisma.stripeAccount.create({
+        data: {
+          userId: user.id,
+          stripeAccountId: account.id,
+          status: "SETUP_INCOMPLETE",
+        },
+      });
+    }
+    const returnPath = opts?.returnPath || "/dashboard/stripe?return=1";
+    const refreshPath = opts?.refreshPath || "/dashboard/stripe?refresh=1";
+    const link = await stripe.accountLinks.create({
+      account: record.stripeAccountId,
+      refresh_url: absoluteUrl(refreshPath),
+      return_url: absoluteUrl(returnPath),
+      type: "account_onboarding",
     });
+    if (!link.url) return { error: "Stripe did not return an onboarding link. Please try again." };
+    return { url: link.url };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not connect Stripe.";
+    console.error("[connectStripeAccount]", err);
+    return {
+      error:
+        message.length < 200 && !/Server Components|digest/i.test(message)
+          ? message
+          : "Could not start Stripe onboarding. Check Stripe keys and APP_URL, then try again from Dashboard → Manage Stripe.",
+    };
   }
-  const returnPath = opts?.returnPath || "/dashboard/stripe?return=1";
-  const refreshPath = opts?.refreshPath || "/dashboard/stripe?refresh=1";
-  const link = await stripe.accountLinks.create({
-    account: record.stripeAccountId,
-    refresh_url: absoluteUrl(refreshPath),
-    return_url: absoluteUrl(returnPath),
-    type: "account_onboarding",
-  });
-  return link.url;
 }
 
 export async function refreshStripeStatus() {
@@ -206,16 +220,21 @@ export async function refreshStripeStatus() {
 }
 
 export async function openStripeDashboard() {
-  const user = await currentUser();
-  const record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
-  if (!record) throw new Error("Connect Stripe first.");
   try {
-    // Login links only work for Express-dashboard accounts (legacy).
-    const link = await getStripe().accounts.createLoginLink(record.stripeAccountId);
-    return link.url;
-  } catch {
-    // Standard-type accounts sign in to the full Stripe Dashboard directly.
-    return "https://dashboard.stripe.com";
+    const user = await currentUser();
+    const record = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+    if (!record) return { error: "Connect Stripe first." };
+    try {
+      // Login links only work for Express-dashboard accounts (legacy).
+      const link = await getStripe().accounts.createLoginLink(record.stripeAccountId);
+      return { url: link.url };
+    } catch {
+      // Standard-type accounts sign in to the full Stripe Dashboard directly.
+      return { url: "https://dashboard.stripe.com" };
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not open Stripe.";
+    return { error: message.length < 180 ? message : "Could not open Stripe Dashboard." };
   }
 }
 
