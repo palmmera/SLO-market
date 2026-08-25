@@ -17,7 +17,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "How do payments work?",
     answer:
-      "When a listing uses in-app checkout, payment is handled through our payment system. For other meetups, buyers and sellers arrange payment themselves. Only use official marketplace checkout when the listing requires it.",
+      "Paid checkout on SLO Market is processed securely through Stripe. Your card details go to Stripe — we never store full credit card numbers. Sellers connect a Stripe account to receive payouts for online sales. Always complete payment through official marketplace checkout; don’t send money outside the platform for paid listings.",
   },
   {
     question: "Where should I meet a buyer or seller?",
