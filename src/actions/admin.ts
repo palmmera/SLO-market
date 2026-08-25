@@ -111,6 +111,30 @@ export async function adminResolveDispute(disputeId: string, notes: string) {
   revalidatePath("/admin");
 }
 
+export async function adminMarkContactRead(messageId: string) {
+  await requireAdmin();
+  await prisma.contactMessage.update({
+    where: { id: messageId },
+    data: { status: "READ", readAt: new Date() },
+  });
+  revalidatePath("/admin");
+}
+
+export async function adminResolveContactMessage(messageId: string) {
+  await requireAdmin();
+  await prisma.contactMessage.update({
+    where: { id: messageId },
+    data: { status: "RESOLVED", readAt: new Date() },
+  });
+  revalidatePath("/admin");
+}
+
+export async function adminDeleteContactMessage(messageId: string) {
+  await requireAdmin();
+  await prisma.contactMessage.delete({ where: { id: messageId } });
+  revalidatePath("/admin");
+}
+
 /** Manually run the 90-day sold/removed photo purge (listing text stays). */
 export async function adminPurgeExpiredImages() {
   await requireAdmin();

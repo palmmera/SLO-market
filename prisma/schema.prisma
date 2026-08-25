@@ -706,3 +706,17 @@ model AuditLog {
   metadata  Json?
   createdAt DateTime @default(now())
 }
+
+model ContactMessage {
+  id        String    @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  body      String
+  status    String    @default("OPEN")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+}

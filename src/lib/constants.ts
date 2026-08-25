@@ -76,4 +76,6 @@ export const RESERVED_PATHS = new Set([
   "success",
   "food-produce-policy",
   "wanted",
+  "contact",
+  "faq",
 ]);

@@ -14,6 +14,9 @@ import {
   adminSuspendUser,
   adminUpdateSettings,
   adminPurgeExpiredImages,
+  adminMarkContactRead,
+  adminResolveContactMessage,
+  adminDeleteContactMessage,
 } from "@/actions/admin";
 import { OrderStatus } from "@prisma/client";
 import Link from "next/link";
@@ -34,6 +37,7 @@ export default async function AdminPage() {
     reports,
     disputes,
     refunds,
+    contactMessages,
     categories,
     cities,
     prohibited,
@@ -46,6 +50,11 @@ export default async function AdminPage() {
     prisma.report.findMany({ where: { status: "OPEN" }, orderBy: { createdAt: "desc" }, include: { reporter: true, listing: true } }),
     prisma.dispute.findMany({ where: { status: "OPEN" }, include: { order: true } }),
     prisma.refund.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { order: true } }),
+    prisma.contactMessage.findMany({
+      where: { status: { in: ["OPEN", "READ"] } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.city.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.prohibitedItem.findMany({ orderBy: { name: "asc" } }),
@@ -210,6 +219,46 @@ export default async function AdminPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="font-display text-2xl">Contact messages</h2>
+        <p className="mt-1 text-sm text-muted">Messages submitted from the Contact Us page.</p>
+        {contactMessages.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No open messages.</p>
+        ) : (
+          contactMessages.map((m) => (
+            <div key={m.id} className="mt-3 rounded-2xl bg-white p-4 text-sm card-shadow">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <span className="font-semibold">{m.name}</span>
+                  <span className="text-muted"> · </span>
+                  <a href={`mailto:${m.email}`} className="text-ocean">
+                    {m.email}
+                  </a>
+                </div>
+                <span className="text-xs text-muted">
+                  {m.status === "OPEN" ? "New" : "Read"} · {m.createdAt.toLocaleString()}
+                </span>
+              </div>
+              {m.subject && <p className="mt-1 font-medium">{m.subject}</p>}
+              <p className="mt-2 whitespace-pre-wrap text-muted">{m.body}</p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {m.status === "OPEN" && (
+                  <form action={adminMarkContactRead.bind(null, m.id)}>
+                    <button className="text-ocean">Mark read</button>
+                  </form>
+                )}
+                <form action={adminResolveContactMessage.bind(null, m.id)}>
+                  <button className="text-ocean">Resolve</button>
+                </form>
+                <form action={adminDeleteContactMessage.bind(null, m.id)}>
+                  <button className="text-clay">Delete</button>
+                </form>
+              </div>
+            </div>
+          ))
+        )}
       </section>
 
       <section>
