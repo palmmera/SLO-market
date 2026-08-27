@@ -37,7 +37,7 @@ export default async function PhotoEditorPage({
   if (!collection) notFound();
   const image = collection.images.find((i) => i.id === sp.image) || collection.images[0];
   if (!image) notFound();
-  const categoryId = sp.category || (await prisma.category.findFirst({ where: { slug: "other" } }))?.id;
+  const categoryId = sp.category || (await prisma.category.findFirst({ where: { slug: "garage-sale" } }))?.id;
   if (!categoryId) notFound();
 
   const stripeReady =
@@ -67,6 +67,10 @@ export default async function PhotoEditorPage({
         imageId={image.id}
         categoryId={categoryId}
         imageUrl={image.originalUrl}
+        initialFulfillment={collection.fulfillment}
+        initialDeliveryFeeCents={collection.deliveryFeeCents}
+        initialDeliveryRadiusMiles={collection.deliveryRadiusMiles}
+        initialHideSold={collection.hideSold}
         initialItems={image.hotspots.map((h) => ({
           listingId: h.listing.id,
           slug: h.listing.slug,

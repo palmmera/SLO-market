@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
-import { formatCityCounty, conditionLabel } from "@/lib/utils";
+import { formatCityCounty, conditionLabel, formatMoney } from "@/lib/utils";
 
 export default async function CollectionPage({
   params,
@@ -39,6 +39,13 @@ export default async function CollectionPage({
   const isProduceStand = collection.type === "PRODUCE_STAND";
   const editBase = isProduceStand ? `/sell/food/photo/${collection.id}` : `/sell/photo/${collection.id}`;
 
+  const fulfillmentNote =
+    collection.fulfillment === "LOCAL_DELIVERY"
+      ? collection.deliveryFeeCents === 0
+        ? `Free local delivery${collection.deliveryRadiusMiles ? ` within ${collection.deliveryRadiusMiles} miles` : ""} — or arrange pickup with the seller.`
+        : `Local delivery ${formatMoney(collection.deliveryFeeCents)}${collection.deliveryRadiusMiles ? ` within ${collection.deliveryRadiusMiles} miles` : ""} — or arrange pickup with the seller.`
+      : "Pickup only — arrange a public meetup after purchase. Exact address is not shown.";
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <p className="text-xs uppercase tracking-[0.2em] text-ocean">{formatCityCounty(collection.city.name)}</p>
@@ -49,6 +56,7 @@ export default async function CollectionPage({
             Tap a price tag on the photo — details and price update here. Buy or message the seller about the selected
             item.
           </p>
+          <p className="mt-2 inline-block rounded-full bg-sand px-3 py-1 text-xs font-medium text-ink">{fulfillmentNote}</p>
         </div>
         {isOwner && (
           <Link
@@ -66,6 +74,7 @@ export default async function CollectionPage({
             hideSold={collection.hideSold}
             initialItemSlug={sp.item}
             showMessage={!isOwner}
+            fulfillmentNote={fulfillmentNote}
             items={image.hotspots.map((h) => ({
               id: h.listing.id,
               slug: h.listing.slug,

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { conditionLabel, formatCityCounty, formatMoney, initials } from "@/lib/utils";
+import { conditionLabel, formatCityCounty, formatMoney, initials, isPayableListingType } from "@/lib/utils";
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
@@ -89,7 +89,7 @@ export default async function ListingPage({
     deliveryFeeGoesTo: settings.deliveryFeeGoesTo,
   });
 
-  const canBuy = listing.status === "ACTIVE" && listing.listingType === "FOR_SALE" && listing.priceCents > 0;
+  const canBuy = listing.status === "ACTIVE" && isPayableListingType(listing.listingType) && listing.priceCents > 0;
   const sp = await searchParams;
 
   return (
@@ -130,10 +130,11 @@ export default async function ListingPage({
           <div className="text-3xl font-bold text-ocean">
             {listing.listingType === "FREE" || listing.priceCents === 0
               ? "FREE"
-              : listing.listingType === "WANTED"
-                ? "Wanted"
-                : formatMoney(listing.priceCents)}
+              : formatMoney(listing.priceCents)}
           </div>
+          {listing.listingType === "RENTAL" && listing.priceCents > 0 && (
+            <p className="text-sm text-muted">Rental — confirm the period (day / week / month) with the owner.</p>
+          )}
           {listing.status !== "ACTIVE" && (
             <p className="font-semibold text-clay">
               {listing.status === "SOLD"
@@ -147,7 +148,9 @@ export default async function ListingPage({
           <p className="rounded-2xl bg-white p-3 text-sm card-shadow">
             {listing.listingType === "SERVICE"
               ? "Local service — message the provider to arrange details, scheduling, and payment."
-              : listing.fulfillment === "PICKUP_ONLY"
+              : listing.listingType === "RENTAL" && listing.fulfillment === "PICKUP_ONLY"
+                ? "Pickup / return locally — arrange a public meetup after payment. Exact address is not shown."
+                : listing.fulfillment === "PICKUP_ONLY"
                 ? "Pickup Only — arrange a public meetup after purchase. Exact address is not shown."
                 : listing.freeDelivery
                   ? `Free local delivery within ${listing.deliveryRadiusMiles ?? 10} miles`
@@ -163,6 +166,7 @@ export default async function ListingPage({
             listingId={listing.id}
             sellerId={listing.sellerId}
             canBuy={canBuy}
+            buyLabel={listing.listingType === "RENTAL" ? "Rent Now" : "Buy Now"}
             favorited={favorited}
             isOwner={session?.user?.id === listing.sellerId}
           />

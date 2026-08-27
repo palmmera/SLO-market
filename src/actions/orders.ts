@@ -33,7 +33,7 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
   });
   if (!listing || listing.status !== ListingStatus.ACTIVE) throw new Error("This listing is no longer available.");
   if (listing.sellerId === buyer.id) throw new Error("You cannot buy your own listing.");
-  if (listing.listingType !== "FOR_SALE" || listing.priceCents <= 0) {
+  if (!["FOR_SALE", "RENTAL"].includes(listing.listingType) || listing.priceCents <= 0) {
     throw new Error("This listing does not require online payment.");
   }
   const connect = listing.seller.stripeAccount;

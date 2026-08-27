@@ -10,6 +10,7 @@ import {
   Gift,
   Guitar,
   Home,
+  KeyRound,
   Shirt,
   Smartphone,
   Sofa,
@@ -30,6 +31,7 @@ const iconMap: Record<string, typeof Home> = {
   briefcase: Briefcase,
   gift: Gift,
   box: Box,
+  key: KeyRound,
 };
 
 export function CategoryGrid({

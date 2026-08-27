@@ -12,12 +12,14 @@ export function ListingActions({
   canBuy,
   favorited,
   isOwner,
+  buyLabel = "Buy Now",
 }: {
   listingId: string;
   sellerId: string;
   canBuy: boolean;
   favorited: boolean;
   isOwner: boolean;
+  buyLabel?: string;
 }) {
   const router = useRouter();
   const [saved, setSaved] = useState(favorited);
@@ -34,7 +36,7 @@ export function ListingActions({
               onClick={() => router.push(`/checkout/${listingId}`)}
               className="w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white"
             >
-              Buy Now
+              {buyLabel}
             </button>
           )}
           <form

@@ -27,8 +27,8 @@ export type CollectionCardData = {
 export function ListingCard({ listing }: { listing: ListingCardData }) {
   const image = listing.images[0]?.thumbnailUrl || listing.images[0]?.url;
   const service = listing.listingType === "SERVICE";
-  const free = !service && (listing.listingType === "FREE" || listing.priceCents === 0);
-  const wanted = listing.listingType === "WANTED";
+  const rental = listing.listingType === "RENTAL";
+  const free = !service && !rental && (listing.listingType === "FREE" || listing.priceCents === 0);
 
   return (
     <Link href={`/listing/${listing.slug}`} className="group overflow-hidden rounded-3xl bg-white card-shadow">
@@ -41,7 +41,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
         )}
         <div className="absolute left-3 top-3 flex gap-2">
           {listing.isFeatured && <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold text-ink">Featured</span>}
-          {wanted && <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold">Wanted</span>}
+          {rental && <span className="rounded-full bg-ocean/90 px-2.5 py-1 text-[11px] font-semibold text-white">Rental</span>}
           {service && <span className="rounded-full bg-ocean/90 px-2.5 py-1 text-[11px] font-semibold text-white">Service</span>}
         </div>
       </div>
@@ -49,7 +49,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
         <div className="flex items-start justify-between gap-2">
           <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{listing.title}</h3>
           <div className={`shrink-0 text-sm font-bold ${free ? "text-ocean" : "text-ink"}`}>
-            {wanted ? "Wanted" : free ? "FREE" : formatMoney(listing.priceCents)}
+            {free ? "FREE" : formatMoney(listing.priceCents)}
           </div>
         </div>
         <p className="mt-1 text-xs text-muted">{formatCityCounty(listing.city.name)}</p>

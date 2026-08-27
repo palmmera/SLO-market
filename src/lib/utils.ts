@@ -34,9 +34,14 @@ export function absoluteUrl(path = "") {
 
 export function listingTypeLabel(type: string) {
   if (type === "FREE") return "FREE";
-  if (type === "WANTED") return "Wanted";
+  if (type === "RENTAL") return "Rental";
   if (type === "SERVICE") return "Service";
+  if (type === "WANTED") return "Wanted";
   return "For Sale";
+}
+
+export function isPayableListingType(type: string) {
+  return type === "FOR_SALE" || type === "RENTAL";
 }
 
 export function conditionLabel(condition?: string | null) {

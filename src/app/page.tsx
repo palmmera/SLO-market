@@ -25,7 +25,7 @@ function toCollectionCards(
 
 export default async function HomePage() {
   const empty: never[] = [];
-  const [categories, cities, recent, produce, produceStands, free, featured, popular, garageSales] = await Promise.all([
+  const [categories, cities, recent, produce, produceStands, free, rentals, featured, popular, garageSales] = await Promise.all([
     safeDb(
       () => prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
       empty,
@@ -44,6 +44,7 @@ export default async function HomePage() {
     ),
     safeDb(() => getActiveProduceStands(4), empty),
     safeDb(() => getActiveListings({ listingType: ListingType.FREE }, 8), empty),
+    safeDb(() => getActiveListings({ listingType: ListingType.RENTAL }, 8), empty),
     safeDb(
       () =>
         prisma.listing.findMany({
@@ -76,7 +77,7 @@ export default async function HomePage() {
 
       <section>
         <SectionHead title="Popular Categories" href="/browse" />
-        <CategoryGrid categories={categories} />
+        <CategoryGrid categories={categories.filter((c) => c.slug !== "other")} />
       </section>
 
       <section>
@@ -92,6 +93,11 @@ export default async function HomePage() {
       <section>
         <SectionHead title="Free Stuff" href="/free-stuff" />
         <ListingGrid listings={free} />
+      </section>
+
+      <section>
+        <SectionHead title="Rentals" href="/rentals" />
+        <ListingGrid listings={rentals} />
       </section>
 
       <section>

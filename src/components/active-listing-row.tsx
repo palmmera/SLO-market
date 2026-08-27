@@ -29,8 +29,8 @@ export function ActiveListingRow({ listing }: { listing: ActiveListingRowData })
   const [pending, start] = useTransition();
   const image = listing.images[0]?.thumbnailUrl || listing.images[0]?.url;
   const free = listing.listingType === "FREE" || listing.priceCents === 0;
-  const wanted = listing.listingType === "WANTED";
-  const priceLabel = wanted ? "Wanted" : free ? "FREE" : formatMoney(listing.priceCents);
+  const rental = listing.listingType === "RENTAL";
+  const priceLabel = rental ? `${formatMoney(listing.priceCents)} rental` : free ? "FREE" : formatMoney(listing.priceCents);
   const expiry = expiryLabel(listing.expiresAt);
 
   return (
@@ -47,7 +47,7 @@ export function ActiveListingRow({ listing }: { listing: ActiveListingRowData })
         <Link href={`/listing/${listing.slug}`} className="block truncate font-semibold hover:underline">
           {listing.title}
         </Link>
-        <p className={`mt-0.5 text-sm font-medium ${free && !wanted ? "text-ocean" : "text-muted"}`}>{priceLabel}</p>
+        <p className={`mt-0.5 text-sm font-medium ${free && !rental ? "text-ocean" : "text-muted"}`}>{priceLabel}</p>
         {expiry && (
           <p className={`mt-0.5 text-xs ${expiry.urgent ? "font-semibold text-clay" : "text-muted"}`}>{expiry.text}</p>
         )}

@@ -40,6 +40,7 @@ export function InteractivePhotoViewer({
   initialItemSlug,
   showBuy = true,
   showMessage = false,
+  fulfillmentNote,
 }: {
   imageUrl: string;
   items: HotspotViewItem[];
@@ -48,6 +49,8 @@ export function InteractivePhotoViewer({
   showBuy?: boolean;
   /** When true, buyers can message the seller about the selected item (garage / produce only). */
   showMessage?: boolean;
+  /** Pickup / delivery note shown to buyers before purchase. */
+  fulfillmentNote?: string;
 }) {
   const router = useRouter();
   const [scale, setScale] = useState(1);
@@ -213,6 +216,9 @@ export function InteractivePhotoViewer({
           </div>
           {selected.condition && <p className="mt-2 text-sm text-muted">Condition: {selected.condition}</p>}
           <p className="mt-3 text-sm text-muted">{selected.description || "See photo."}</p>
+          {fulfillmentNote && !isUnavailable(selected.status) && (
+            <p className="mt-3 rounded-2xl bg-sand px-3 py-2 text-sm">{fulfillmentNote}</p>
+          )}
           {isUnavailable(selected.status) ? (
             <p className="mt-4 rounded-2xl bg-clay/10 px-4 py-3 text-sm font-semibold text-clay">This item has sold.</p>
           ) : (

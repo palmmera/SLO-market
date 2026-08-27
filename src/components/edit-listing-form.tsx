@@ -8,7 +8,7 @@ import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
 
-type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean };
+type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
 
 type ExistingImage = { id: string; url: string; thumbnailUrl: string | null };
 
@@ -44,6 +44,7 @@ export function EditListingForm({
 }) {
   const router = useRouter();
   const parents = categories.filter((c) => !c.parentId);
+  const rentalParent = parents.find((p) => p.isRental);
   const categoryRecord = categories.find((c) => c.id === listing.categoryId);
   const initialParent =
     listing.categoryParentId ||
@@ -65,7 +66,27 @@ export function EditListingForm({
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const selectedParent = parents.find((p) => p.id === parentId);
+  const isRentalListing = listingType === "RENTAL";
+  const categoryParents = isRentalListing ? parents.filter((p) => p.isRental) : parents.filter((p) => !p.isRental);
   const totalPhotoCount = existingImages.length + newPhotos.length;
+
+  useEffect(() => {
+    if (isRentalListing && rentalParent && parentId !== rentalParent.id) {
+      setParentId(rentalParent.id);
+      const nextChildren = categories.filter((c) => c.parentId === rentalParent.id);
+      if (nextChildren.length && !nextChildren.some((c) => c.id === categoryId)) {
+        setCategoryId(nextChildren[0].id);
+      }
+    } else if (!isRentalListing && rentalParent && parentId === rentalParent.id) {
+      const fallback = parents.find((p) => !p.isRental && !p.isProduce) ?? parents.find((p) => !p.isRental);
+      if (fallback) {
+        setParentId(fallback.id);
+        const nextChildren = categories.filter((c) => c.parentId === fallback.id);
+        setCategoryId((nextChildren[0] ?? fallback).id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingType]);
 
   useEffect(() => {
     return () => {
@@ -246,7 +267,22 @@ export function EditListingForm({
       </section>
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
-        <h2 className="font-semibold">Category</h2>
+        <h2 className="font-semibold">{isRentalListing ? "Rental type" : "Category"}</h2>
+        {isRentalListing ? (
+          <select
+            name="categoryId"
+            required
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+          >
+            {categoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        ) : (
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <select
             value={parentId}
@@ -259,7 +295,7 @@ export function EditListingForm({
             }}
             className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
           >
-            {parents.map((c) => (
+            {categoryParents.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -279,6 +315,7 @@ export function EditListingForm({
             ))}
           </select>
         </div>
+        )}
         {selectedParent?.isProduce && (
           <p className="mt-3 rounded-xl bg-ocean-light p-3 text-sm text-ocean-dark">
             Local produce listings must follow California and SLO County rules. Do not list prohibited or unpermitted food items.
@@ -288,26 +325,28 @@ export function EditListingForm({
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">Listing type</h2>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-3 gap-2">
           {[
             ["FOR_SALE", "For Sale"],
-            ["FREE", "Free"],
-            ["WANTED", "Wanted"],
+            ["RENTAL", "Rentals"],
             ["SERVICE", "Service"],
-          ].map(([value, label]) => (
+          ].map(([value, label]) => {
+            const selected = value === "FOR_SALE" ? listingType === "FOR_SALE" || listingType === "FREE" : listingType === value;
+            return (
             <button
               key={value}
               type="button"
               onClick={() => setListingType(value)}
-              className={`rounded-2xl px-3 py-3 text-sm font-semibold ${listingType === value ? "bg-ocean text-white" : "bg-sand"}`}
+              className={`rounded-2xl px-3 py-3 text-sm font-semibold ${selected ? "bg-ocean text-white" : "bg-sand"}`}
             >
               {label}
             </button>
-          ))}
+            );
+          })}
         </div>
-        {listingType !== "WANTED" && listingType !== "FREE" && (
+        {listingType === "FOR_SALE" && (
           <label className="mt-4 block">
-            <span className="text-sm font-medium">{listingType === "SERVICE" ? "Rate / Price" : "Price"}</span>
+            <span className="text-sm font-medium">Price</span>
             <input
               name="price"
               type="number"
@@ -319,8 +358,51 @@ export function EditListingForm({
             />
           </label>
         )}
-        {listingType === "FREE" && <p className="mt-3 font-display text-2xl text-ocean">FREE</p>}
-        {listingType === "WANTED" && <p className="mt-3 text-sm text-muted">Describe what you are looking for. No price required.</p>}
+        {listingType === "RENTAL" && (
+          <label className="mt-4 block">
+            <span className="text-sm font-medium">Rental price</span>
+            <input
+              name="price"
+              type="number"
+              min="1"
+              step="0.01"
+              required
+              defaultValue={(listing.priceCents / 100).toFixed(2)}
+              placeholder="e.g. 40 per day"
+              className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            />
+          </label>
+        )}
+        {listingType === "SERVICE" && (
+          <label className="mt-4 block">
+            <span className="text-sm font-medium">Rate / Price</span>
+            <input
+              name="price"
+              type="number"
+              min="1"
+              step="0.01"
+              required
+              defaultValue={(listing.priceCents / 100).toFixed(2)}
+              className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+            />
+          </label>
+        )}
+        {listingType === "FREE" && <p className="mt-4 font-display text-2xl text-ocean">FREE</p>}
+        {(listingType === "FOR_SALE" || listingType === "FREE") && (
+          <label className="mt-3 flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={listingType === "FREE"}
+              onChange={(e) => setListingType(e.target.checked ? "FREE" : "FOR_SALE")}
+            />
+            This item is free
+          </label>
+        )}
+        {listingType === "RENTAL" && (
+          <p className="mt-3 text-sm text-muted">
+            Spell out the rental period (day, week, or month) in the title or description.
+          </p>
+        )}
         {listingType === "SERVICE" && (
           <p className="mt-3 text-sm text-muted">
             Offer a local service. Buyers will message you to arrange details.
@@ -328,7 +410,7 @@ export function EditListingForm({
         )}
       </section>
 
-      {listingType !== "WANTED" && listingType !== "SERVICE" && (
+      {listingType !== "SERVICE" && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">Condition</h2>
           <select

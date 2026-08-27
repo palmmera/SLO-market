@@ -51,6 +51,8 @@ async function createListingInner(formData: FormData) {
   let categoryId = String(formData.get("categoryId") || "");
   const cityId = String(formData.get("cityId") || "");
   const listingType = String(formData.get("listingType") || "FOR_SALE") as ListingType;
+  const allowedTypes: ListingType[] = ["FOR_SALE", "FREE", "RENTAL", "SERVICE"];
+  if (!allowedTypes.includes(listingType)) return { error: "Choose a valid listing type." };
   const condition = (formData.get("condition") as Condition | null) || null;
   const price = Number(formData.get("price") || 0);
   const fulfillment = (String(formData.get("fulfillment") || "PICKUP_ONLY") as FulfillmentMethod);
@@ -81,9 +83,15 @@ async function createListingInner(formData: FormData) {
   if (!category || !city) return { error: "Please choose a valid category and city." };
 
   const isProduce = Boolean(category.isProduce || category.parent?.isProduce || produceProductType);
+  const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
   if (isProduce) {
     const foodSeller = await getActiveFoodSeller(user.id);
     if (!foodSeller) return { error: FOOD_SELLER_REQUIRED_MESSAGE };
+  }
+  if (listingType === "RENTAL" && !isRentalCat) return { error: "Choose a rental category (cars, rooms, houses, tools, or equipment)." };
+  if (listingType !== "RENTAL" && isRentalCat) return { error: "Rental categories are only for Rentals listings." };
+  if ((listingType === "FOR_SALE" || listingType === "RENTAL" || listingType === "SERVICE") && !(price > 0)) {
+    return { error: listingType === "RENTAL" ? "Enter a rental price." : "Enter a price." };
   }
 
   const produceExtra = produceProductType ? buildProduceExtraDetails(formData) : null;
@@ -99,7 +107,7 @@ async function createListingInner(formData: FormData) {
       title,
       description,
       listingType,
-      condition: listingType === "WANTED" || listingType === "SERVICE" || isProduce ? null : condition,
+      condition: listingType === "SERVICE" || listingType === "WANTED" || isProduce ? null : condition,
       priceCents,
       status: stripeReady ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
       sellerId: user.id,
@@ -243,6 +251,8 @@ export async function updateListing(listingId: string, formData: FormData) {
   const categoryId = String(formData.get("categoryId") || "");
   const cityId = String(formData.get("cityId") || "");
   const listingType = String(formData.get("listingType") || "FOR_SALE") as ListingType;
+  const allowedTypes: ListingType[] = ["FOR_SALE", "FREE", "RENTAL", "SERVICE"];
+  if (!allowedTypes.includes(listingType)) throw new Error("Choose a valid listing type.");
   const condition = (formData.get("condition") as Condition | null) || null;
   const price = Number(formData.get("price") || 0);
   const fulfillment = String(formData.get("fulfillment") || "PICKUP_ONLY") as FulfillmentMethod;
@@ -251,9 +261,12 @@ export async function updateListing(listingId: string, formData: FormData) {
   const freeDelivery = formData.get("freeDelivery") === "on";
 
   if (!title || !categoryId || !cityId) throw new Error("Title, category, and city are required.");
-  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  const category = await prisma.category.findUnique({ where: { id: categoryId }, include: { parent: true } });
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!category || !city) throw new Error("Please choose a valid category and city.");
+  const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
+  if (listingType === "RENTAL" && !isRentalCat) throw new Error("Choose a rental category.");
+  if (listingType !== "RENTAL" && isRentalCat) throw new Error("Rental categories are only for Rentals listings.");
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
   const priceChanged = priceCents !== existing.priceCents;
@@ -273,7 +286,7 @@ export async function updateListing(listingId: string, formData: FormData) {
       title,
       description,
       listingType,
-      condition: listingType === "WANTED" || listingType === "SERVICE" ? null : condition,
+      condition: listingType === "SERVICE" || listingType === "WANTED" ? null : condition,
       priceCents,
       categoryId,
       cityId,

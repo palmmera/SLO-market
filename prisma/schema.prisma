@@ -18,6 +18,7 @@ enum ListingType {
   FREE
   WANTED
   SERVICE
+  RENTAL
 }
 
 enum Condition {
@@ -293,6 +294,7 @@ model Category {
   isActive       Boolean    @default(true)
   isProduce      Boolean    @default(false)
   isFree         Boolean    @default(false)
+  isRental       Boolean    @default(false)
   sortOrder      Int        @default(0)
   seoTitle       String?
   seoDescription String?

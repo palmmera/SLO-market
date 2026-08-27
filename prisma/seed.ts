@@ -29,6 +29,8 @@ type CategorySeed = {
   icon: string;
   isProduce?: boolean;
   isFree?: boolean;
+  isRental?: boolean;
+  isActive?: boolean;
   seoTitle?: string;
   seoDescription?: string;
   children?: { name: string; slug: string }[];
@@ -225,9 +227,28 @@ const categories: CategorySeed[] = [
     seoDescription: "Free furniture, boxes, plants, household items, and more from neighbors across SLO County.",
   },
   {
+    name: "Rentals",
+    slug: "rentals",
+    icon: "key",
+    isRental: true,
+    seoTitle: "Rentals in San Luis Obispo County | SLO Market",
+    seoDescription: "Rent cars, rooms, houses, power tools, and equipment from neighbors across SLO County.",
+    children: [
+      { name: "Cars & Vehicles", slug: "rental-cars" },
+      { name: "Rooms", slug: "rental-rooms" },
+      { name: "Houses", slug: "rental-houses" },
+      { name: "Power Tools", slug: "rental-power-tools" },
+      { name: "Equipment", slug: "rental-equipment" },
+      { name: "Trailers", slug: "rental-trailers" },
+      { name: "Party & Event", slug: "rental-party" },
+      { name: "Sports & Outdoor", slug: "rental-outdoor" },
+    ],
+  },
+  {
     name: "Other",
     slug: "other",
     icon: "box",
+    isActive: false,
   },
 ];
 
@@ -278,6 +299,8 @@ async function main() {
         icon: cat.icon,
         isProduce: Boolean(cat.isProduce),
         isFree: Boolean(cat.isFree),
+        isRental: Boolean(cat.isRental),
+        isActive: cat.isActive !== false,
         sortOrder: index,
         seoTitle: cat.seoTitle,
         seoDescription: cat.seoDescription,
@@ -288,6 +311,8 @@ async function main() {
         icon: cat.icon,
         isProduce: Boolean(cat.isProduce),
         isFree: Boolean(cat.isFree),
+        isRental: Boolean(cat.isRental),
+        isActive: cat.isActive !== false,
         sortOrder: index,
         seoTitle: cat.seoTitle,
         seoDescription: cat.seoDescription,
@@ -298,13 +323,20 @@ async function main() {
       for (const [childIndex, child] of cat.children.entries()) {
         await prisma.category.upsert({
           where: { slug: child.slug },
-          update: { name: child.name, parentId: parent.id, sortOrder: childIndex, isProduce: Boolean(cat.isProduce) },
+          update: {
+            name: child.name,
+            parentId: parent.id,
+            sortOrder: childIndex,
+            isProduce: Boolean(cat.isProduce),
+            isRental: Boolean(cat.isRental),
+          },
           create: {
             name: child.name,
             slug: child.slug,
             parentId: parent.id,
             sortOrder: childIndex,
             isProduce: Boolean(cat.isProduce),
+            isRental: Boolean(cat.isRental),
           },
         });
       }

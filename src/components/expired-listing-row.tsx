@@ -20,8 +20,8 @@ export function ExpiredListingRow({ listing }: { listing: ExpiredListingRowData 
   const [pending, start] = useTransition();
   const image = listing.images[0]?.thumbnailUrl || listing.images[0]?.url;
   const free = listing.listingType === "FREE" || listing.priceCents === 0;
-  const wanted = listing.listingType === "WANTED";
-  const priceLabel = wanted ? "Wanted" : free ? "FREE" : formatMoney(listing.priceCents);
+  const rental = listing.listingType === "RENTAL";
+  const priceLabel = rental ? `${formatMoney(listing.priceCents)} rental` : free ? "FREE" : formatMoney(listing.priceCents);
 
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow">

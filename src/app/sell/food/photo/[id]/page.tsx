@@ -74,6 +74,10 @@ export default async function FoodPhotoEditorPage({
         categoryId={categoryId}
         imageUrl={image.originalUrl}
         returnPath={`/sell/food/photo/${collection.id}?image=${image.id}&category=${categoryId}`}
+        initialFulfillment={collection.fulfillment}
+        initialDeliveryFeeCents={collection.deliveryFeeCents}
+        initialDeliveryRadiusMiles={collection.deliveryRadiusMiles}
+        initialHideSold={collection.hideSold}
         initialItems={image.hotspots.map((h) => ({
           listingId: h.listing.id,
           slug: h.listing.slug,

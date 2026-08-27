@@ -2,12 +2,12 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveHotspotItem, deleteHotspotItem, markHotspotSold } from "@/actions/hotspots";
+import { saveHotspotItem, deleteHotspotItem, markHotspotSold, updateCollectionFulfillment } from "@/actions/hotspots";
 import { connectStripeAccount } from "@/actions/orders";
 import { HOTSPOT_CONDITIONS } from "@/lib/constants";
 import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
 import { formatMoney } from "@/lib/utils";
-import { ProduceProductType } from "@prisma/client";
+import { FulfillmentMethod, ProduceProductType } from "@prisma/client";
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -34,6 +34,10 @@ export function HotspotEditor({
   initialItems,
   mode = "garage",
   returnPath,
+  initialFulfillment = "PICKUP_ONLY",
+  initialDeliveryFeeCents = 0,
+  initialDeliveryRadiusMiles = null,
+  initialHideSold = false,
 }: {
   collectionId: string;
   collectionSlug: string;
@@ -43,6 +47,10 @@ export function HotspotEditor({
   initialItems: Item[];
   mode?: "garage" | "produce";
   returnPath?: string;
+  initialFulfillment?: "PICKUP_ONLY" | "LOCAL_DELIVERY";
+  initialDeliveryFeeCents?: number;
+  initialDeliveryRadiusMiles?: number | null;
+  initialHideSold?: boolean;
 }) {
   const router = useRouter();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -55,8 +63,33 @@ export function HotspotEditor({
   const [pending, start] = useTransition();
   const [draftTitle, setDraftTitle] = useState("");
   const [draftKey, setDraftKey] = useState(0);
+  const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">(initialFulfillment);
+  const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFeeCents ? String(initialDeliveryFeeCents / 100) : "");
+  const [deliveryRadius, setDeliveryRadius] = useState(initialDeliveryRadiusMiles ? String(initialDeliveryRadiusMiles) : "");
+  const [hideSold, setHideSold] = useState(initialHideSold);
+  const [savingFulfillment, setSavingFulfillment] = useState(false);
+  const [fulfillmentSaved, setFulfillmentSaved] = useState(false);
   const isProduce = mode === "produce";
   const stripeReturnPath = returnPath || `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}`;
+
+  async function saveFulfillment() {
+    setSavingFulfillment(true);
+    setFulfillmentSaved(false);
+    try {
+      await updateCollectionFulfillment(
+        collectionId,
+        fulfillment as FulfillmentMethod,
+        hideSold,
+        fulfillment === "LOCAL_DELIVERY" ? Math.round(Number(deliveryFee || 0) * 100) : 0,
+        fulfillment === "LOCAL_DELIVERY" && deliveryRadius ? Math.round(Number(deliveryRadius)) : null,
+      );
+      setFulfillmentSaved(true);
+    } catch {
+      alert("Could not save pickup / delivery. Please try again.");
+    } finally {
+      setSavingFulfillment(false);
+    }
+  }
 
   function openDraft(box: Box, title: string) {
     setActive(box);
@@ -145,6 +178,71 @@ export function HotspotEditor({
   return (
     <div className="space-y-3">
       <p className="rounded-2xl bg-ocean px-4 py-3 text-sm font-medium text-white">Tap an item in the photo to add it for sale.</p>
+
+      <div className="space-y-3 rounded-3xl bg-white p-4 card-shadow">
+        <div className="text-sm font-semibold">How buyers get these items</div>
+        <p className="text-xs text-muted">Applies to every item in this {isProduce ? "produce stand" : "sale"}.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setFulfillment("PICKUP_ONLY")}
+            className={`rounded-2xl border-2 py-2.5 text-sm font-semibold ${fulfillment === "PICKUP_ONLY" ? "border-ocean bg-ocean-light text-ocean-dark" : "border-sand-dark bg-sand text-ink"}`}
+          >
+            Pickup only
+          </button>
+          <button
+            type="button"
+            onClick={() => setFulfillment("LOCAL_DELIVERY")}
+            className={`rounded-2xl border-2 py-2.5 text-sm font-semibold ${fulfillment === "LOCAL_DELIVERY" ? "border-ocean bg-ocean-light text-ocean-dark" : "border-sand-dark bg-sand text-ink"}`}
+          >
+            Offer local delivery
+          </button>
+        </div>
+        {fulfillment === "LOCAL_DELIVERY" && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-muted">
+              Delivery fee (leave 0 for free)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={deliveryFee}
+                onChange={(e) => setDeliveryFee(e.target.value)}
+                placeholder="0"
+                className="mt-1 w-full rounded-2xl bg-sand px-4 py-3 text-sm text-ink"
+              />
+            </label>
+            <label className="text-xs text-muted">
+              Within (miles)
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={deliveryRadius}
+                onChange={(e) => setDeliveryRadius(e.target.value)}
+                placeholder="10"
+                className="mt-1 w-full rounded-2xl bg-sand px-4 py-3 text-sm text-ink"
+              />
+            </label>
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)} />
+          Hide sold items from buyers
+        </label>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={saveFulfillment}
+            disabled={savingFulfillment}
+            className="rounded-2xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {savingFulfillment ? "Saving..." : "Save pickup / delivery"}
+          </button>
+          {fulfillmentSaved && <span className="text-sm text-ocean">Saved for all items.</span>}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         <button type="button" onClick={() => setScale((s) => Math.min(6, s + 0.25))} className="rounded-full bg-white px-3 py-2 text-sm card-shadow">
           Zoom in

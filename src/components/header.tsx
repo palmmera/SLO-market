@@ -147,6 +147,7 @@ export function Footer() {
           <div className="mt-3 grid gap-2 text-sm text-white/80">
             <Link href="/browse">Browse listings</Link>
             <Link href="/local-produce">Local Produce</Link>
+            <Link href="/rentals">Rentals</Link>
             <Link href="/free-stuff">Free Stuff</Link>
             <Link href="/sell">Sell Something</Link>
           </div>

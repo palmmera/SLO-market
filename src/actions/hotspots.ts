@@ -113,6 +113,9 @@ export async function saveHotspotItem(input: {
     categoryId,
     cityId: collection.cityId,
     fulfillment: collection.fulfillment,
+    deliveryFeeCents: collection.deliveryFeeCents,
+    deliveryRadiusMiles: collection.deliveryRadiusMiles,
+    freeDelivery: collection.fulfillment === FulfillmentMethod.LOCAL_DELIVERY && collection.deliveryFeeCents === 0,
     collectionId: collection.id,
     publishedAt: new Date(),
     seoTitle: `${input.title} in ${collection.city.name} | SLO Market`,
@@ -218,14 +221,38 @@ export async function removePhotoCollection(collectionId: string) {
   return true;
 }
 
-export async function updateCollectionFulfillment(collectionId: string, fulfillment: FulfillmentMethod, hideSold: boolean) {
+export async function updateCollectionFulfillment(
+  collectionId: string,
+  fulfillment: FulfillmentMethod,
+  hideSold: boolean,
+  deliveryFeeCents = 0,
+  deliveryRadiusMiles: number | null = null,
+) {
   const user = await currentUser();
-  await prisma.collection.updateMany({
+  const collection = await prisma.collection.findFirst({
     where: { id: collectionId, sellerId: user.id },
-    data: { fulfillment, hideSold },
+  });
+  if (!collection) throw new Error("Garage sale not found.");
+
+  const isDelivery = fulfillment === FulfillmentMethod.LOCAL_DELIVERY;
+  const feeCents = isDelivery ? Math.max(0, Math.round(deliveryFeeCents)) : 0;
+  const radius = isDelivery ? deliveryRadiusMiles : null;
+
+  await prisma.collection.update({
+    where: { id: collection.id },
+    data: { fulfillment, hideSold, deliveryFeeCents: feeCents, deliveryRadiusMiles: radius },
   });
   await prisma.listing.updateMany({
-    where: { collectionId, sellerId: user.id },
-    data: { fulfillment },
+    where: { collectionId: collection.id, sellerId: user.id },
+    data: {
+      fulfillment,
+      deliveryFeeCents: feeCents,
+      deliveryRadiusMiles: radius,
+      freeDelivery: isDelivery && feeCents === 0,
+    },
   });
+
+  revalidatePath(`/collection/${collection.slug}`);
+  revalidatePath("/dashboard");
+  return { ok: true as const };
 }
