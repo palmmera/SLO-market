@@ -21,9 +21,6 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-sand-dark/80 bg-sand/90 backdrop-blur">
-      <div className="bg-clay px-4 py-2.5 text-center text-sm font-medium leading-snug text-white">
-        Website under construction — you can still create an account, browse, and explore. Features and content may change.
-      </div>
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
         <Link href="/" className="shrink-0">
           <div className="font-display text-xl font-semibold tracking-tight text-ocean-dark">SLO MARKET</div>

@@ -42,7 +42,15 @@ export default async function SellerDashboard() {
         },
         include: { items: true },
       }),
-      prisma.order.findMany({ where: { sellerId: userId, status: "COMPLETED" }, take: 20 }),
+      prisma.order.findMany({
+        where: { sellerId: userId, status: "COMPLETED" },
+        take: 20,
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: { select: { title: true, itemPriceCents: true } },
+          buyer: { select: { name: true } },
+        },
+      }),
       prisma.stripeAccount.findUnique({ where: { userId } }),
       prisma.order.aggregate({
         where: {
@@ -182,9 +190,18 @@ export default async function SellerDashboard() {
         ))}
       </Section>
       <Section title="Completed Orders">
+        {completed.length === 0 && <Empty />}
         {completed.map((o) => (
           <Link key={o.id} href={`/orders/${o.id}`} className="block rounded-2xl bg-white p-4 card-shadow">
-            {o.orderNumber}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate font-semibold">{o.items[0]?.title ?? "Item"}</div>
+                <div className="text-xs text-muted">
+                  Sold to {o.buyer?.name ?? "buyer"} · {o.orderNumber}
+                </div>
+              </div>
+              <div className="shrink-0 font-semibold text-ocean">{formatMoney(o.sellerPayoutCents)}</div>
+            </div>
           </Link>
         ))}
       </Section>
