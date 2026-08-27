@@ -9,6 +9,7 @@ import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
 import { compressImage } from "@/lib/image-compress";
 import Link from "next/link";
+import { RentalTypePicker } from "@/components/rental-type-picker";
 import { ProduceProductType } from "@prisma/client";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
@@ -39,6 +40,7 @@ export function SellForm({
   const children = useMemo(() => categories.filter((c) => c.parentId === parentId), [categories, parentId]);
   const [produceProductType, setProduceProductType] = useState<ProduceProductType>("FRESH_PRODUCE");
   const [listingType, setListingType] = useState("FOR_SALE");
+  const [rentalCategoryId, setRentalCategoryId] = useState("");
   const [fulfillment, setFulfillment] = useState("PICKUP_ONLY");
   const [enhanced, setEnhanced] = useState(false);
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
@@ -105,6 +107,13 @@ export function SellForm({
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
         form.set("enhanced", enhanced ? "1" : "0");
+        if (isRentalListing) {
+          if (!rentalCategoryId) {
+            setError("Choose what you are renting.");
+            return;
+          }
+          form.set("categoryId", rentalCategoryId);
+        }
         if (isProduceListing) {
           form.set("produceProductType", produceProductType);
           if (produceMode && produceParent) form.set("parentCategoryId", produceParent.id);
@@ -255,13 +264,17 @@ export function SellForm({
             ))}
           </select>
         ) : isRentalListing ? (
-          <select name="categoryId" required className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3">
-            {(children.length ? children : categoryParents).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <RentalTypePicker
+            options={
+              rentalParent
+                ? categories.filter((c) => c.parentId === rentalParent.id)
+                : children.length
+                  ? children
+                  : categoryParents
+            }
+            value={rentalCategoryId}
+            onChange={setRentalCategoryId}
+          />
         ) : (
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <select

@@ -7,6 +7,7 @@ import { updateListing } from "@/actions/listings";
 import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
+import { RentalTypePicker } from "@/components/rental-type-picker";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
 
@@ -269,19 +270,7 @@ export function EditListingForm({
       <section className="rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-semibold">{isRentalListing ? "Rental type" : "Category"}</h2>
         {isRentalListing ? (
-          <select
-            name="categoryId"
-            required
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
-          >
-            {categoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <RentalTypePicker options={categoryOptions} value={categoryId} onChange={setCategoryId} />
         ) : (
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <select
