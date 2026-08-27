@@ -46,7 +46,8 @@ export default async function CollectionPage({
         <div>
           <h1 className="font-display text-4xl">{collection.title}</h1>
           <p className="mt-1 text-sm text-muted">
-            Tap a price tag on the photo — details and price update here. Buy the selected item.
+            Tap a price tag on the photo — details and price update here. Buy or message the seller about the selected
+            item.
           </p>
         </div>
         {isOwner && (
@@ -64,6 +65,7 @@ export default async function CollectionPage({
             imageUrl={image.originalUrl || image.displayUrl || ""}
             hideSold={collection.hideSold}
             initialItemSlug={sp.item}
+            showMessage={!isOwner}
             items={image.hotspots.map((h) => ({
               id: h.listing.id,
               slug: h.listing.slug,

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { startMessage } from "@/actions/listings";
+import { SUGGESTED_FIRST_MESSAGE } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
 
 export type HotspotViewItem = {
@@ -37,17 +39,22 @@ export function InteractivePhotoViewer({
   hideSold = false,
   initialItemSlug,
   showBuy = true,
+  showMessage = false,
 }: {
   imageUrl: string;
   items: HotspotViewItem[];
   hideSold?: boolean;
   initialItemSlug?: string;
   showBuy?: boolean;
+  /** When true, buyers can message the seller about the selected item (garage / produce only). */
+  showMessage?: boolean;
 }) {
   const router = useRouter();
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [expanded, setExpanded] = useState(false);
+  const [message, setMessage] = useState(SUGGESTED_FIRST_MESSAGE);
+  const [pending, start] = useTransition();
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   const visible = useMemo(
@@ -218,6 +225,32 @@ export function InteractivePhotoViewer({
                 Buy this item
               </button>
             )
+          )}
+          {showMessage && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                start(async () => {
+                  const id = await startMessage(selected.id, message);
+                  router.push(`/messages/${id}`);
+                });
+              }}
+              className="mt-3 rounded-2xl bg-sand p-3"
+            >
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl bg-white px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={pending}
+                className="mt-2 w-full rounded-xl bg-ink py-2.5 text-sm font-semibold text-white"
+              >
+                Message Seller
+              </button>
+            </form>
           )}
           <p className="mt-4 text-xs text-muted">Tap an item in the photo (or its price tag) to switch.</p>
         </>
