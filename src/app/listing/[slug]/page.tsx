@@ -7,7 +7,7 @@ import { conditionLabel, formatCityCounty, formatMoney, initials, isPayableListi
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
-import { calculateFees, getPlatformSettings, stripeFeeCopy } from "@/lib/fees";
+import { calculateFees, getPlatformSettings } from "@/lib/fees";
 import { ListingStatus } from "@prisma/client";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -212,7 +212,7 @@ export default async function ListingPage({
           </div>
         )}
       </section>
-      <p className="mt-6 text-xs text-muted">{MARKETPLACE_DISCLAIMER} {stripeFeeCopy(settings.stripeFeeTreatment)}</p>
+      <p className="mt-6 text-xs text-muted">{MARKETPLACE_DISCLAIMER}</p>
     </div>
   );
 }

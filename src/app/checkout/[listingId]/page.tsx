@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CheckoutForm } from "@/components/checkout-form";
-import { getPlatformSettings, marketplaceCommissionCopy, stripeFeeCopy } from "@/lib/fees";
 import { ListingStatus } from "@prisma/client";
 
 export default async function CheckoutPage({ params }: { params: Promise<{ listingId: string }> }) {
@@ -13,7 +12,6 @@ export default async function CheckoutPage({ params }: { params: Promise<{ listi
     include: { seller: { include: { stripeAccount: true } } },
   });
   if (!listing || listing.status !== ListingStatus.ACTIVE) notFound();
-  const settings = await getPlatformSettings();
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
@@ -28,10 +26,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ listi
         deliveryRadius={listing.deliveryRadiusMiles}
         payoutsEnabled={listing.seller.stripeAccount?.status === "PAYOUTS_ENABLED"}
       />
-      <p className="mt-4 text-xs text-muted">
-        {marketplaceCommissionCopy(settings.commissionPercent, settings.commissionOnDelivery)}{" "}
-        {stripeFeeCopy(settings.stripeFeeTreatment)} Card numbers never touch SLO Market servers.
-      </p>
+      <p className="mt-4 text-xs text-muted">Card numbers never touch SLO Market servers.</p>
     </div>
   );
 }
