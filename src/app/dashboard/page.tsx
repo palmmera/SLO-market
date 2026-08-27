@@ -47,7 +47,7 @@ export default async function SellerDashboard() {
         take: 20,
         orderBy: { createdAt: "desc" },
         include: {
-          items: { select: { title: true, itemPriceCents: true } },
+          items: { select: { title: true } },
           buyer: { select: { name: true } },
         },
       }),
