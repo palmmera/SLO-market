@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { startMessage, toggleFavorite, reportContent, blockUser } from "@/actions/listings";
-import { SUGGESTED_FIRST_MESSAGE } from "@/lib/constants";
+import { suggestedFirstMessage } from "@/lib/constants";
 import { RentalDateRange } from "@/components/rental-date-range";
 import { formatDateLabel, MAX_DAILY_RENTAL_DAYS, overlappingBookedRange, rentalDaysInclusive, type RentalDateRangeValue } from "@/lib/utils";
 
 export function ListingActions({
   listingId,
   sellerId,
+  sellerName,
   canBuy,
   favorited,
   isOwner,
@@ -21,6 +22,7 @@ export function ListingActions({
 }: {
   listingId: string;
   sellerId: string;
+  sellerName?: string | null;
   canBuy: boolean;
   favorited: boolean;
   isOwner: boolean;
@@ -31,7 +33,7 @@ export function ListingActions({
 }) {
   const router = useRouter();
   const [saved, setSaved] = useState(favorited);
-  const [message, setMessage] = useState(SUGGESTED_FIRST_MESSAGE);
+  const [message, setMessage] = useState(() => suggestedFirstMessage(sellerName));
   const [pending, start] = useTransition();
   const [reportOpen, setReportOpen] = useState(false);
   const [rentalStart, setRentalStart] = useState("");

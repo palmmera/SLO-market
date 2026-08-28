@@ -16,7 +16,10 @@ export const SAFETY_TIPS = [
 export const MARKETPLACE_DISCLAIMER =
   "SLO Market is a marketplace platform connecting independent buyers and sellers. SLO Market does not itself own, inspect, guarantee, or sell the listed products.";
 
-export const SUGGESTED_FIRST_MESSAGE = "Hi, is this still available?";
+export function suggestedFirstMessage(sellerName?: string | null) {
+  const first = sellerName?.trim().split(/\s+/)[0];
+  return first ? `Hi ${first}...` : "Hi...";
+}
 
 /** How long an active listing stays live before it expires and needs renewal. */
 export const LISTING_DURATION_DAYS = 30;

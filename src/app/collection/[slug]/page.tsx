@@ -74,6 +74,7 @@ export default async function CollectionPage({
             hideSold={collection.hideSold}
             initialItemSlug={sp.item}
             showMessage={!isOwner}
+            sellerName={collection.seller.name}
             fulfillmentNote={fulfillmentNote}
             items={image.hotspots.map((h) => ({
               id: h.listing.id,

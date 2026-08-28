@@ -184,6 +184,7 @@ export default async function ListingPage({
           <ListingActions
             listingId={listing.id}
             sellerId={listing.sellerId}
+            sellerName={listing.seller.name}
             canBuy={canBuy}
             buyLabel={dailyRental ? "Rent Now" : "Buy Now"}
             favorited={favorited}

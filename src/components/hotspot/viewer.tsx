@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { startMessage } from "@/actions/listings";
-import { SUGGESTED_FIRST_MESSAGE } from "@/lib/constants";
+import { suggestedFirstMessage } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
 
 export type HotspotViewItem = {
@@ -41,6 +41,7 @@ export function InteractivePhotoViewer({
   showBuy = true,
   showMessage = false,
   fulfillmentNote,
+  sellerName,
 }: {
   imageUrl: string;
   items: HotspotViewItem[];
@@ -51,12 +52,13 @@ export function InteractivePhotoViewer({
   showMessage?: boolean;
   /** Pickup / delivery note shown to buyers before purchase. */
   fulfillmentNote?: string;
+  sellerName?: string | null;
 }) {
   const router = useRouter();
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [expanded, setExpanded] = useState(false);
-  const [message, setMessage] = useState(SUGGESTED_FIRST_MESSAGE);
+  const [message, setMessage] = useState(() => suggestedFirstMessage(sellerName));
   const [pending, start] = useTransition();
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
