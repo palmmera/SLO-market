@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { renewListing, removeListing } from "@/actions/listings";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, isDailyRentalListing, isHousingRentalSlug } from "@/lib/utils";
 
 export type ExpiredListingRowData = {
   id: string;
@@ -13,6 +13,7 @@ export type ExpiredListingRowData = {
   priceCents: number;
   listingType: string;
   images: { thumbnailUrl: string | null; url: string }[];
+  category?: { slug: string } | null;
 };
 
 export function ExpiredListingRow({ listing }: { listing: ExpiredListingRowData }) {
@@ -21,7 +22,17 @@ export function ExpiredListingRow({ listing }: { listing: ExpiredListingRowData 
   const image = listing.images[0]?.thumbnailUrl || listing.images[0]?.url;
   const free = listing.listingType === "FREE" || listing.priceCents === 0;
   const rental = listing.listingType === "RENTAL";
-  const priceLabel = rental ? `${formatMoney(listing.priceCents)} rental` : free ? "FREE" : formatMoney(listing.priceCents);
+  const housing = isHousingRentalSlug(listing.category?.slug);
+  const daily = isDailyRentalListing(listing.listingType, listing.category?.slug);
+  const priceLabel = housing
+    ? `${formatMoney(listing.priceCents)}/mo`
+    : daily
+      ? `${formatMoney(listing.priceCents)}/day`
+      : rental
+        ? `${formatMoney(listing.priceCents)} rental`
+        : free
+          ? "FREE"
+          : formatMoney(listing.priceCents);
 
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow">

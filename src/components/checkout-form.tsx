@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { createCheckoutSession } from "@/actions/orders";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, MAX_DAILY_RENTAL_DAYS, rentalDaysInclusive } from "@/lib/utils";
+import { RentalDateRange } from "@/components/rental-date-range";
 
 export function CheckoutForm({
   listingId,
@@ -14,6 +15,10 @@ export function CheckoutForm({
   deliveryFeeCents,
   deliveryRadius,
   payoutsEnabled,
+  housingRental = false,
+  dailyRental = false,
+  initialStartDate = "",
+  initialEndDate = "",
 }: {
   listingId: string;
   title: string;
@@ -24,20 +29,46 @@ export function CheckoutForm({
   deliveryFeeCents: number;
   deliveryRadius: number | null;
   payoutsEnabled: boolean;
+  housingRental?: boolean;
+  dailyRental?: boolean;
+  initialStartDate?: string;
+  initialEndDate?: string;
 }) {
   const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">("PICKUP_ONLY");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const [rentalStart, setRentalStart] = useState(initialStartDate);
+  const [rentalEnd, setRentalEnd] = useState(initialEndDate);
+  const rentalDays = dailyRental && rentalStart && rentalEnd ? rentalDaysInclusive(rentalStart, rentalEnd) : 0;
+  const rentalTotal = dailyRental ? rentalDays * itemPriceCents : itemPriceCents;
   const delivery = fulfillment === "LOCAL_DELIVERY" && canDeliver ? (freeDelivery ? 0 : deliveryFeeCents) : 0;
-  const total = itemPriceCents + delivery;
+  const total = rentalTotal + delivery;
+  const canPay = payoutsEnabled && (!dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS));
 
   return (
     <div className="space-y-4 rounded-3xl bg-white p-5 card-shadow">
-      <h1 className="font-display text-3xl">Pay Securely</h1>
+      <h1 className="font-display text-3xl">{housingRental ? "Pay first month" : dailyRental ? "Rent" : "Pay Securely"}</h1>
       <div className="text-sm">
         <div className="font-semibold">{title}</div>
         <div className="text-muted">Seller: {sellerName}</div>
       </div>
+      {housingRental && (
+        <p className="rounded-2xl bg-sand p-3 text-sm">
+          This is <strong>one month’s rent</strong>. You pay the first month here. Later months you arrange with the owner.
+        </p>
+      )}
+      {dailyRental && (
+        <RentalDateRange
+          dailyRateCents={itemPriceCents}
+          startDate={rentalStart}
+          endDate={rentalEnd}
+          onChange={({ startDate, endDate }) => {
+            setRentalStart(startDate);
+            setRentalEnd(endDate);
+          }}
+        />
+      )}
+      {!housingRental && (
       <div>
         <p className="mb-2 text-sm font-medium">Fulfillment method</p>
         <label className="mb-2 flex items-center gap-2 rounded-2xl bg-sand p-3">
@@ -52,18 +83,21 @@ export function CheckoutForm({
           </label>
         )}
       </div>
+      )}
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between">
-          <dt>Item price</dt>
-          <dd>{formatMoney(itemPriceCents)}</dd>
+          <dt>{housingRental ? "First month’s rent" : dailyRental ? "Rental" : "Item price"}</dt>
+          <dd>{dailyRental && rentalDays < 1 ? "—" : formatMoney(rentalTotal)}</dd>
         </div>
+        {!housingRental && (
         <div className="flex justify-between">
           <dt>Delivery fee</dt>
           <dd>{delivery ? formatMoney(delivery) : "None"}</dd>
         </div>
+        )}
         <div className="flex justify-between font-semibold">
           <dt>Total</dt>
-          <dd>{formatMoney(total)}</dd>
+          <dd>{dailyRental && rentalDays < 1 ? "—" : formatMoney(total)}</dd>
         </div>
       </dl>
       {!payoutsEnabled && (
@@ -71,11 +105,15 @@ export function CheckoutForm({
       )}
       {error && <p className="text-sm text-clay">{error}</p>}
       <button
-        disabled={pending || !payoutsEnabled}
+        disabled={pending || !canPay}
         onClick={() =>
           start(async () => {
             try {
-              const url = await createCheckoutSession(listingId, fulfillment);
+              const url = await createCheckoutSession(
+                listingId,
+                housingRental ? "PICKUP_ONLY" : fulfillment,
+                dailyRental ? { startDate: rentalStart, endDate: rentalEnd } : null,
+              );
               if (url) window.location.href = url;
             } catch (err) {
               setError(err instanceof Error ? err.message : "Checkout failed.");
@@ -84,7 +122,7 @@ export function CheckoutForm({
         }
         className="w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white disabled:opacity-50"
       >
-        {pending ? "Redirecting to Stripe..." : "Pay Securely"}
+        {pending ? "Redirecting to Stripe..." : housingRental ? "Pay first month" : dailyRental ? "Pay rental" : "Pay Securely"}
       </button>
     </div>
   );

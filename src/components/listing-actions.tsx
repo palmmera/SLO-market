@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { startMessage, toggleFavorite, reportContent, blockUser } from "@/actions/listings";
 import { SUGGESTED_FIRST_MESSAGE } from "@/lib/constants";
+import { RentalDateRange } from "@/components/rental-date-range";
+import { MAX_DAILY_RENTAL_DAYS, rentalDaysInclusive } from "@/lib/utils";
 
 export function ListingActions({
   listingId,
@@ -13,6 +15,8 @@ export function ListingActions({
   favorited,
   isOwner,
   buyLabel = "Buy Now",
+  dailyRental = false,
+  dailyRateCents = 0,
 }: {
   listingId: string;
   sellerId: string;
@@ -20,21 +24,45 @@ export function ListingActions({
   favorited: boolean;
   isOwner: boolean;
   buyLabel?: string;
+  dailyRental?: boolean;
+  dailyRateCents?: number;
 }) {
   const router = useRouter();
   const [saved, setSaved] = useState(favorited);
   const [message, setMessage] = useState(SUGGESTED_FIRST_MESSAGE);
   const [pending, start] = useTransition();
   const [reportOpen, setReportOpen] = useState(false);
+  const [rentalStart, setRentalStart] = useState("");
+  const [rentalEnd, setRentalEnd] = useState("");
+  const rentalDays = dailyRental && rentalStart && rentalEnd ? rentalDaysInclusive(rentalStart, rentalEnd) : 0;
+  const rentalReady = !dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS);
 
   return (
     <div className="space-y-3">
       {!isOwner && (
         <>
+          {canBuy && dailyRental && (
+            <RentalDateRange
+              dailyRateCents={dailyRateCents}
+              startDate={rentalStart}
+              endDate={rentalEnd}
+              onChange={({ startDate, endDate }) => {
+                setRentalStart(startDate);
+                setRentalEnd(endDate);
+              }}
+            />
+          )}
           {canBuy && (
             <button
-              onClick={() => router.push(`/checkout/${listingId}`)}
-              className="w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white"
+              disabled={dailyRental && !rentalReady}
+              onClick={() => {
+                const href =
+                  dailyRental && rentalStart && rentalEnd
+                    ? `/checkout/${listingId}?from=${rentalStart}&to=${rentalEnd}`
+                    : `/checkout/${listingId}`;
+                router.push(href);
+              }}
+              className="w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white disabled:opacity-50"
             >
               {buyLabel}
             </button>

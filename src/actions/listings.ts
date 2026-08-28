@@ -14,6 +14,7 @@ import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
+import { isHousingRentalSlug } from "@/lib/utils";
 
 /** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */
 function newExpiry() {
@@ -91,8 +92,10 @@ async function createListingInner(formData: FormData) {
   if (listingType === "RENTAL" && !isRentalCat) return { error: "Choose a rental category (cars, rooms, houses, tools, or equipment)." };
   if (listingType !== "RENTAL" && isRentalCat) return { error: "Rental categories are only for Rentals listings." };
   if ((listingType === "FOR_SALE" || listingType === "RENTAL" || listingType === "SERVICE") && !(price > 0)) {
-    return { error: listingType === "RENTAL" ? "Enter a rental price." : "Enter a price." };
+    return { error: listingType === "RENTAL" ? (isHousingRentalSlug(category.slug) ? "Enter a monthly rent." : "Enter a daily rate.") : "Enter a price." };
   }
+  const housingRental = isHousingRentalSlug(category.slug);
+  const savedFulfillment = housingRental ? FulfillmentMethod.PICKUP_ONLY : fulfillment;
 
   const produceExtra = produceProductType ? buildProduceExtraDetails(formData) : null;
 
@@ -113,10 +116,10 @@ async function createListingInner(formData: FormData) {
       sellerId: user.id,
       categoryId,
       cityId,
-      fulfillment,
-      deliveryRadiusMiles: fulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
-      deliveryFeeCents: fulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
-      freeDelivery: fulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
+      fulfillment: savedFulfillment,
+      deliveryRadiusMiles: savedFulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
+      deliveryFeeCents: savedFulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
+      freeDelivery: savedFulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
       enhancedDescription: false,
       extraDetails: produceExtra
         ? produceExtra
@@ -267,6 +270,8 @@ export async function updateListing(listingId: string, formData: FormData) {
   const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
   if (listingType === "RENTAL" && !isRentalCat) throw new Error("Choose a rental category.");
   if (listingType !== "RENTAL" && isRentalCat) throw new Error("Rental categories are only for Rentals listings.");
+  const housingRental = isHousingRentalSlug(category.slug);
+  const savedFulfillment = housingRental ? FulfillmentMethod.PICKUP_ONLY : fulfillment;
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
   const priceChanged = priceCents !== existing.priceCents;
@@ -290,10 +295,10 @@ export async function updateListing(listingId: string, formData: FormData) {
       priceCents,
       categoryId,
       cityId,
-      fulfillment,
-      deliveryRadiusMiles: fulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
-      deliveryFeeCents: fulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
-      freeDelivery: fulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
+      fulfillment: savedFulfillment,
+      deliveryRadiusMiles: savedFulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
+      deliveryFeeCents: savedFulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
+      freeDelivery: savedFulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
       seoTitle,
       seoDescription,
       ...(shouldPublishDraft

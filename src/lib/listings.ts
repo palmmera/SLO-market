@@ -4,6 +4,7 @@ import { ListingStatus } from "@prisma/client";
 const listingInclude = {
   city: true,
   images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+  category: { select: { slug: true } },
 };
 
 export async function getActiveListings(where: Record<string, unknown> = {}, take = 8) {

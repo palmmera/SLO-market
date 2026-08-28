@@ -3,6 +3,7 @@ import { ListingStatus, OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
+import { dateToInput, formatDateLabel, isDailyRentalListing } from "@/lib/utils";
 
 /** Mark a marketplace order paid after Stripe Checkout succeeds. Safe to call more than once. */
 export async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) {
@@ -12,7 +13,7 @@ export async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
-      items: { include: { listing: { include: { hotspot: true, collection: true } } } },
+      items: { include: { listing: { include: { hotspot: true, collection: true, category: { select: { slug: true } } } } } },
       seller: { include: { stripeAccount: true } },
     },
   });
@@ -93,33 +94,44 @@ export async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) 
     },
   });
   for (const item of order.items) {
-    await prisma.listing.update({
-      where: { id: item.listingId },
-      data: { status: ListingStatus.SOLD, soldAt: new Date() },
-    });
-    if (item.listing.hotspot) {
-      await prisma.listingHotspot.update({
-        where: { listingId: item.listingId },
-        data: { markerLabel: "Sold" },
+    const keepListed = isDailyRentalListing(item.listing.listingType, item.listing.category.slug);
+    if (!keepListed) {
+      await prisma.listing.update({
+        where: { id: item.listingId },
+        data: { status: ListingStatus.SOLD, soldAt: new Date() },
       });
+      if (item.listing.hotspot) {
+        await prisma.listingHotspot.update({
+          where: { listingId: item.listingId },
+          data: { markerLabel: "Sold" },
+        });
+      }
+      await notifyFavoritesListingChange(item.listingId, "LISTING_SOLD", "Item sold", `${item.title} was purchased.`);
     }
     if (item.listing.collection?.slug) {
       revalidatePath(`/collection/${item.listing.collection.slug}`);
     }
-    await notifyFavoritesListingChange(item.listingId, "LISTING_SOLD", "Item sold", `${item.title} was purchased.`);
   }
+  const rentalRange =
+    order.rentalStartDate && order.rentalEndDate && order.rentalDays
+      ? ` from ${formatDateLabel(dateToInput(order.rentalStartDate))} to ${formatDateLabel(dateToInput(order.rentalEndDate))} (${order.rentalDays} day${order.rentalDays === 1 ? "" : "s"})`
+      : "";
   await notify({
     userId: order.sellerId,
     type: "SALE",
-    title: "You made a sale",
-    body: `Order ${order.orderNumber} is paid. Message the buyer to arrange pickup or delivery.`,
+    title: rentalRange ? "You have a rental booking" : "You made a sale",
+    body: rentalRange
+      ? `Order ${order.orderNumber} is paid${rentalRange}. Message the renter to arrange pickup or delivery.`
+      : `Order ${order.orderNumber} is paid. Message the buyer to arrange pickup or delivery.`,
     link: `/orders/${order.id}`,
   });
   await notify({
     userId: order.buyerId,
     type: "PURCHASE",
-    title: "Purchase complete",
-    body: `Your payment for order ${order.orderNumber} went through. Message the seller to arrange pickup or delivery.`,
+    title: rentalRange ? "Rental booked" : "Purchase complete",
+    body: rentalRange
+      ? `Your payment for order ${order.orderNumber} went through${rentalRange}. Message the seller to arrange pickup or delivery.`
+      : `Your payment for order ${order.orderNumber} went through. Message the seller to arrange pickup or delivery.`,
     link: `/orders/${order.id}`,
   });
 
@@ -136,7 +148,9 @@ export async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) 
         messages: {
           create: {
             senderId: order.buyerId,
-            body: "Hi, I just purchased this. Can we arrange pickup or delivery?",
+            body: rentalRange
+              ? `Hi, I rented this${rentalRange}. Can we arrange pickup or delivery?`
+              : "Hi, I just purchased this. Can we arrange pickup or delivery?",
             listingId: order.items[0]?.listingId,
             orderId: order.id,
           },

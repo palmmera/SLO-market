@@ -11,6 +11,7 @@ import { compressImage } from "@/lib/image-compress";
 import Link from "next/link";
 import { RentalTypePicker } from "@/components/rental-type-picker";
 import { ProduceProductType } from "@prisma/client";
+import { isHousingRentalSlug } from "@/lib/utils";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
 
@@ -51,6 +52,8 @@ export function SellForm({
   const selectedParent = parents.find((p) => p.id === parentId);
   const isProduceListing = produceMode || Boolean(selectedParent?.isProduce);
   const isRentalListing = listingType === "RENTAL";
+  const rentalCategory = categories.find((c) => c.id === rentalCategoryId);
+  const isHousingRental = isRentalListing && isHousingRentalSlug(rentalCategory?.slug);
   const showPermitFields = isProduceListing && produceTypeRequiresPermit(produceProductType);
   const categoryParents = isRentalListing
     ? parents.filter((p) => p.isRental)
@@ -372,14 +375,16 @@ export function SellForm({
         )}
         {listingType === "RENTAL" && (
           <label className="mt-4 block">
-            <span className="text-sm font-medium">4. Rental price</span>
+            <span className="text-sm font-medium">
+              {isHousingRental ? "4. Monthly rent (first month paid here)" : "4. Price per day"}
+            </span>
             <input
               name="price"
               type="number"
               min="1"
               step="0.01"
               required
-              placeholder="e.g. 40 per day"
+              placeholder={isHousingRental ? "e.g. 1800 per month" : "e.g. 10 per day"}
               className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
             />
           </label>
@@ -411,7 +416,9 @@ export function SellForm({
         )}
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
-            Set the rate you charge (day, week, or month). Spell out the rental period in the title or description so renters know what they are paying for.
+            {isHousingRental
+              ? "Enter one month’s rent. The renter pays the first month through SLO Market. Later months you arrange directly with them."
+              : "Enter the daily rate. Renters pick start and end dates on a calendar and pay this rate × number of days."}
           </p>
         )}
         {listingType === "SERVICE" && (
@@ -421,7 +428,7 @@ export function SellForm({
         )}
       </section>
 
-      {listingType !== "SERVICE" && !isProduceListing && (
+      {listingType !== "SERVICE" && !isProduceListing && !isHousingRental && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">5. Condition</h2>
           <select name="condition" defaultValue="GOOD" className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3">
@@ -498,7 +505,7 @@ export function SellForm({
         </select>
       </section>
 
-      {listingType !== "SERVICE" && (
+      {listingType !== "SERVICE" && !isHousingRental && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">8. How will the buyer receive the item?</h2>
           <div className="mt-3 grid gap-2">

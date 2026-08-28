@@ -15,7 +15,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       reviewsReceived: { where: { isHidden: false }, include: { reviewer: true } },
       listings: {
         where: { status: ListingStatus.ACTIVE, collectionId: null },
-        include: { city: true, images: { take: 1, orderBy: { sortOrder: "asc" } } },
+        include: { city: true, images: { take: 1, orderBy: { sortOrder: "asc" } }, category: { select: { slug: true } } },
       },
       collections: {
         where: {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { conditionLabel, formatCityCounty, formatMoney, initials, isPayableListingType } from "@/lib/utils";
+import { conditionLabel, formatCityCounty, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType } from "@/lib/utils";
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
@@ -90,6 +90,8 @@ export default async function ListingPage({
   });
 
   const canBuy = listing.status === "ACTIVE" && isPayableListingType(listing.listingType) && listing.priceCents > 0;
+  const housingRental = listing.listingType === "RENTAL" && isHousingRentalSlug(listing.category.slug);
+  const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);
   const sp = await searchParams;
 
   return (
@@ -130,10 +132,17 @@ export default async function ListingPage({
           <div className="text-3xl font-bold text-ocean">
             {listing.listingType === "FREE" || listing.priceCents === 0
               ? "FREE"
-              : formatMoney(listing.priceCents)}
+              : housingRental
+                ? `${formatMoney(listing.priceCents)}/mo`
+                : dailyRental
+                  ? `${formatMoney(listing.priceCents)}/day`
+                  : formatMoney(listing.priceCents)}
           </div>
-          {listing.listingType === "RENTAL" && listing.priceCents > 0 && (
-            <p className="text-sm text-muted">Rental — confirm the period (day / week / month) with the owner.</p>
+          {housingRental && listing.priceCents > 0 && (
+            <p className="text-sm text-muted">Monthly rent — first month is paid here. Later months you arrange with the owner.</p>
+          )}
+          {dailyRental && listing.priceCents > 0 && (
+            <p className="text-sm text-muted">Price is per day. Pick start and end dates — you pay days × daily rate.</p>
           )}
           {listing.status !== "ACTIVE" && (
             <p className="font-semibold text-clay">
@@ -148,6 +157,8 @@ export default async function ListingPage({
           <p className="rounded-2xl bg-white p-3 text-sm card-shadow">
             {listing.listingType === "SERVICE"
               ? "Local service — message the provider to arrange details, scheduling, and payment."
+              : housingRental
+                ? "First month is paid through SLO Market. After that, arrange rent, showing, and move-in with the owner in Messages. Exact address is not shown."
               : listing.listingType === "RENTAL" && listing.fulfillment === "PICKUP_ONLY"
                 ? "Pickup / return locally — arrange a public meetup after payment. Exact address is not shown."
                 : listing.fulfillment === "PICKUP_ONLY"
@@ -156,7 +167,7 @@ export default async function ListingPage({
                   ? `Free local delivery within ${listing.deliveryRadiusMiles ?? 10} miles`
                   : `Local delivery: ${formatMoney(listing.deliveryFeeCents)} within ${listing.deliveryRadiusMiles ?? 10} miles`}
           </p>
-          {canBuy && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery && (
+          {canBuy && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery && !dailyRental && (
             <p className="text-sm text-muted">
               Item {formatMoney(listing.priceCents)} + delivery {formatMoney(listing.deliveryFeeCents)} ={" "}
               <strong>{formatMoney(fees.totalCents)}</strong> before Stripe processing.
@@ -166,9 +177,11 @@ export default async function ListingPage({
             listingId={listing.id}
             sellerId={listing.sellerId}
             canBuy={canBuy}
-            buyLabel={listing.listingType === "RENTAL" ? "Rent Now" : "Buy Now"}
+            buyLabel={housingRental ? "Pay first month" : dailyRental ? "Rent Now" : "Buy Now"}
             favorited={favorited}
             isOwner={session?.user?.id === listing.sellerId}
+            dailyRental={dailyRental}
+            dailyRateCents={listing.priceCents}
           />
           <Link href={`/u/${listing.seller.id}`} className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow">
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-ocean-light font-semibold text-ocean">

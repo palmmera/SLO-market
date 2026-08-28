@@ -41,7 +41,7 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
       () =>
         prisma.listing.findMany({
           where: { status: ListingStatus.ACTIVE, collectionId: null, cityId: city.id },
-          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
           orderBy: { publishedAt: "desc" },
           take: 48,
         }),
@@ -100,7 +100,7 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
           collectionId: null,
           ...(category.isFree ? { listingType: "FREE" } : { categoryId: { in: ids } }),
         },
-        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
         orderBy: { publishedAt: "desc" },
         take: 48,
       }),

@@ -6,7 +6,7 @@ import { getSession } from "@/lib/auth";
 import { calculateFees, getPlatformSettings } from "@/lib/fees";
 import { connectedAccountCreateParams, getStripe, stripeConfigured } from "@/lib/stripe";
 import { orderNumber } from "@/lib/slug";
-import { absoluteUrl } from "@/lib/utils";
+import { absoluteUrl, formatDateLabel, isDailyRentalListing, isHousingRentalSlug, toNoonUtc, validateRentalPeriod } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { fulfillMarketplaceOrder } from "@/lib/fulfill-order";
 import { revalidatePath } from "next/cache";
@@ -24,12 +24,16 @@ export async function sellerCanReceivePayouts(sellerId: string) {
   return account?.status === "PAYOUTS_ENABLED" && account.payoutsEnabled;
 }
 
-export async function createCheckoutSession(listingId: string, fulfillment: FulfillmentMethod) {
+export async function createCheckoutSession(
+  listingId: string,
+  fulfillment: FulfillmentMethod,
+  rentalPeriod?: { startDate: string; endDate: string } | null,
+) {
   const buyer = await currentUser();
   if (!stripeConfigured()) throw new Error("Payments are not configured yet.");
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
-    include: { seller: { include: { stripeAccount: true } }, city: true },
+    include: { seller: { include: { stripeAccount: true } }, city: true, category: true },
   });
   if (!listing || listing.status !== ListingStatus.ACTIVE) throw new Error("This listing is no longer available.");
   if (listing.sellerId === buyer.id) throw new Error("You cannot buy your own listing.");
@@ -41,17 +45,31 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
     throw new Error("This seller has not finished Stripe onboarding, so marketplace payments are not enabled yet.");
   }
 
+  const housingRental = isHousingRentalSlug(listing.category.slug);
+  const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);
+  let rentalDays = 0;
+  let rentalStart: Date | null = null;
+  let rentalEnd: Date | null = null;
+  if (dailyRental) {
+    const period = validateRentalPeriod(rentalPeriod?.startDate || "", rentalPeriod?.endDate || "");
+    if (!period.ok) throw new Error(period.error);
+    rentalDays = period.days;
+    rentalStart = toNoonUtc(rentalPeriod!.startDate);
+    rentalEnd = toNoonUtc(rentalPeriod!.endDate);
+  }
+
+  const itemPriceCents = dailyRental ? listing.priceCents * rentalDays : listing.priceCents;
   const deliveryFeeCents =
-    fulfillment === "LOCAL_DELIVERY" && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery
+    !housingRental && fulfillment === "LOCAL_DELIVERY" && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery
       ? listing.deliveryFeeCents
       : 0;
-  if (fulfillment === "LOCAL_DELIVERY" && listing.fulfillment !== "LOCAL_DELIVERY") {
+  if (!housingRental && fulfillment === "LOCAL_DELIVERY" && listing.fulfillment !== "LOCAL_DELIVERY") {
     throw new Error("This seller offers pickup only.");
   }
 
   const settings = await getPlatformSettings();
   const fees = calculateFees({
-    itemPriceCents: listing.priceCents,
+    itemPriceCents,
     deliveryFeeCents,
     commissionPercent: settings.commissionPercent,
     commissionOnDelivery: settings.commissionOnDelivery,
@@ -81,11 +99,15 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
       platformFeeCents: fees.platformFeeCents,
       sellerPayoutCents: fees.sellerPayoutCents,
       fulfillment,
+      rentalStartDate: rentalStart,
+      rentalEndDate: rentalEnd,
+      rentalDays: dailyRental ? rentalDays : null,
+      dailyRateCents: dailyRental ? listing.priceCents : null,
       items: {
         create: {
           listingId: listing.id,
           title: listing.title,
-          priceCents: listing.priceCents,
+          priceCents: itemPriceCents,
         },
       },
       ledgerEntries: {
@@ -105,6 +127,12 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
     },
   });
 
+  const productName = housingRental
+    ? `${listing.title} — first month’s rent`
+    : dailyRental
+      ? `${listing.title} — ${rentalDays}-day rental (${formatDateLabel(rentalPeriod!.startDate)} to ${formatDateLabel(rentalPeriod!.endDate)})`
+      : listing.title;
+
   // Direct charge on the connected account (Stripe-Account header).
   // Stripe bills payment-processing fees to the seller; platform takes application_fee only.
   const stripe = getStripe();
@@ -114,11 +142,11 @@ export async function createCheckoutSession(listingId: string, fulfillment: Fulf
       customer_email: buyer.email,
       line_items: [
         {
-          quantity: 1,
+          quantity: dailyRental ? rentalDays : 1,
           price_data: {
             currency: "usd",
             unit_amount: listing.priceCents,
-            product_data: { name: listing.title },
+            product_data: { name: productName },
           },
         },
         ...(deliveryFeeCents
@@ -316,7 +344,10 @@ export async function deleteStripeAccount() {
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   const user = await currentUser();
-  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { items: { include: { listing: true } } } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { listing: { include: { category: { select: { slug: true } } } } } } },
+  });
   if (!order) throw new Error("Order not found.");
   const isSeller = order.sellerId === user.id;
   const isBuyer = order.buyerId === user.id;
@@ -331,6 +362,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
 
   if (status === "COMPLETED") {
     for (const item of order.items) {
+      if (isDailyRentalListing(item.listing.listingType, item.listing.category.slug)) continue;
       await prisma.listing.update({
         where: { id: item.listingId },
         data: { status: ListingStatus.SOLD, soldAt: new Date() },

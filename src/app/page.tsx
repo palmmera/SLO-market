@@ -36,7 +36,7 @@ export default async function HomePage() {
       () =>
         prisma.listing.findMany({
           where: { status: ListingStatus.ACTIVE, collectionId: null, category: { isProduce: true } },
-          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
           orderBy: { publishedAt: "desc" },
           take: 8,
         }),
@@ -49,7 +49,7 @@ export default async function HomePage() {
       () =>
         prisma.listing.findMany({
           where: { status: ListingStatus.ACTIVE, collectionId: null, isFeatured: true },
-          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
           orderBy: { publishedAt: "desc" },
           take: 8,
         }),
@@ -59,7 +59,7 @@ export default async function HomePage() {
       () =>
         prisma.listing.findMany({
           where: { status: ListingStatus.ACTIVE, collectionId: null },
-          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+          include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
           orderBy: [{ favoriteCount: "desc" }, { viewCount: "desc" }],
           take: 8,
         }),

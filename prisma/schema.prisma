@@ -477,6 +477,10 @@ model Order {
   platformFeeCents        Int
   sellerPayoutCents       Int
   fulfillment             FulfillmentMethod
+  rentalStartDate         DateTime?
+  rentalEndDate           DateTime?
+  rentalDays              Int?
+  dailyRateCents          Int?
   stripePaymentIntentId   String?
   stripeCheckoutSessionId String?
   stripeChargeId          String?

@@ -17,7 +17,7 @@ export default async function SellerDashboard() {
     await Promise.all([
       prisma.listing.findMany({
         where: { sellerId: userId, status: ListingStatus.ACTIVE, collectionId: null },
-        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
         orderBy: { createdAt: "desc" },
       }),
       prisma.listing.findMany({
@@ -27,7 +27,7 @@ export default async function SellerDashboard() {
       }),
       prisma.listing.findMany({
         where: { sellerId: userId, status: ListingStatus.EXPIRED, collectionId: null },
-        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        include: { images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
         orderBy: { updatedAt: "desc" },
       }),
       prisma.listing.findMany({
@@ -157,6 +157,7 @@ export default async function SellerDashboard() {
                 listingType: l.listingType,
                 expiresAt: l.expiresAt ? l.expiresAt.toISOString() : null,
                 images: l.images,
+                category: l.category,
               }}
             />
           ))}
@@ -175,6 +176,7 @@ export default async function SellerDashboard() {
                   priceCents: l.priceCents,
                   listingType: l.listingType,
                   images: l.images,
+                  category: l.category,
                 }}
               />
             ))}

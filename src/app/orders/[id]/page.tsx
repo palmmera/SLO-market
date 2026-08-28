@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { formatMoney, orderStatusLabel } from "@/lib/utils";
+import { dateToInput, formatDateLabel, formatMoney, orderStatusLabel } from "@/lib/utils";
 import { OrderControls } from "@/components/order-controls";
 import { getPlatformSettings, stripeFeeCopy } from "@/lib/fees";
 import { confirmOrderPayment } from "@/actions/orders";
@@ -82,7 +82,14 @@ export default async function OrderPage({
           </Link>
         ))}
         <div className="text-sm">
-          <div>Item: {formatMoney(order.itemPriceCents)}</div>
+          {order.rentalDays && order.rentalStartDate && order.rentalEndDate && (
+            <div>
+              Rental: {formatDateLabel(dateToInput(order.rentalStartDate))} – {formatDateLabel(dateToInput(order.rentalEndDate))}
+              {" "}({order.rentalDays} day{order.rentalDays === 1 ? "" : "s"}
+              {order.dailyRateCents ? ` × ${formatMoney(order.dailyRateCents)}/day` : ""})
+            </div>
+          )}
+          <div>{order.rentalDays ? "Rental total" : "Item"}: {formatMoney(order.itemPriceCents)}</div>
           <div>Delivery: {order.deliveryFeeCents ? formatMoney(order.deliveryFeeCents) : "None"}</div>
           <div className="font-semibold">Total {isBuyer ? "paid" : ""}: {formatMoney(order.totalCents)}</div>
           {showSellerFinancials && (

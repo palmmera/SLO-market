@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { removeListing } from "@/actions/listings";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, isDailyRentalListing, isHousingRentalSlug } from "@/lib/utils";
 
 export type ActiveListingRowData = {
   id: string;
@@ -14,6 +14,7 @@ export type ActiveListingRowData = {
   listingType: string;
   expiresAt?: string | null;
   images: { thumbnailUrl: string | null; url: string }[];
+  category?: { slug: string } | null;
 };
 
 function expiryLabel(expiresAt?: string | null) {
@@ -30,7 +31,17 @@ export function ActiveListingRow({ listing }: { listing: ActiveListingRowData })
   const image = listing.images[0]?.thumbnailUrl || listing.images[0]?.url;
   const free = listing.listingType === "FREE" || listing.priceCents === 0;
   const rental = listing.listingType === "RENTAL";
-  const priceLabel = rental ? `${formatMoney(listing.priceCents)} rental` : free ? "FREE" : formatMoney(listing.priceCents);
+  const housing = isHousingRentalSlug(listing.category?.slug);
+  const daily = isDailyRentalListing(listing.listingType, listing.category?.slug);
+  const priceLabel = housing
+    ? `${formatMoney(listing.priceCents)}/mo`
+    : daily
+      ? `${formatMoney(listing.priceCents)}/day`
+      : rental
+        ? `${formatMoney(listing.priceCents)} rental`
+        : free
+          ? "FREE"
+          : formatMoney(listing.priceCents);
   const expiry = expiryLabel(listing.expiresAt);
 
   return (

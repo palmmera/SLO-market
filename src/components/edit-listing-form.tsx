@@ -8,6 +8,7 @@ import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
 import { RentalTypePicker } from "@/components/rental-type-picker";
+import { isHousingRentalSlug } from "@/lib/utils";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
 
@@ -68,6 +69,8 @@ export function EditListingForm({
   const libraryRef = useRef<HTMLInputElement>(null);
   const selectedParent = parents.find((p) => p.id === parentId);
   const isRentalListing = listingType === "RENTAL";
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const isHousingRental = isRentalListing && isHousingRentalSlug(selectedCategory?.slug);
   const categoryParents = isRentalListing ? parents.filter((p) => p.isRental) : parents.filter((p) => !p.isRental);
   const totalPhotoCount = existingImages.length + newPhotos.length;
 
@@ -349,7 +352,9 @@ export function EditListingForm({
         )}
         {listingType === "RENTAL" && (
           <label className="mt-4 block">
-            <span className="text-sm font-medium">Rental price</span>
+            <span className="text-sm font-medium">
+              {isHousingRental ? "Monthly rent (first month paid here)" : "Price per day"}
+            </span>
             <input
               name="price"
               type="number"
@@ -357,7 +362,7 @@ export function EditListingForm({
               step="0.01"
               required
               defaultValue={(listing.priceCents / 100).toFixed(2)}
-              placeholder="e.g. 40 per day"
+              placeholder={isHousingRental ? "e.g. 1800 per month" : "e.g. 10 per day"}
               className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
             />
           </label>
@@ -389,7 +394,9 @@ export function EditListingForm({
         )}
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
-            Spell out the rental period (day, week, or month) in the title or description.
+            {isHousingRental
+              ? "Enter one month’s rent. The renter pays the first month through SLO Market. Later months you arrange directly with them."
+              : "Enter the daily rate. Renters pick start and end dates on a calendar and pay this rate × number of days."}
           </p>
         )}
         {listingType === "SERVICE" && (
@@ -399,7 +406,7 @@ export function EditListingForm({
         )}
       </section>
 
-      {listingType !== "SERVICE" && (
+      {listingType !== "SERVICE" && !isHousingRental && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">Condition</h2>
           <select
@@ -440,7 +447,7 @@ export function EditListingForm({
         </select>
       </section>
 
-      {listingType !== "SERVICE" && (
+      {listingType !== "SERVICE" && !isHousingRental && (
         <section className="rounded-3xl bg-white p-5 card-shadow">
           <h2 className="font-semibold">How will the buyer receive the item?</h2>
           <div className="mt-3 grid gap-2">
