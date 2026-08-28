@@ -9,6 +9,7 @@ import { orderNumber } from "@/lib/slug";
 import { absoluteUrl, formatDateLabel, isDailyRentalListing, isHousingRentalSlug, toNoonUtc, validateRentalPeriod } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { fulfillMarketplaceOrder } from "@/lib/fulfill-order";
+import { assertRentalDatesFree, getBookedRentalRanges } from "@/lib/rental-availability";
 import { revalidatePath } from "next/cache";
 
 async function currentUser() {
@@ -86,6 +87,11 @@ export async function createCheckoutSession(
     },
     data: { status: OrderStatus.CANCELLED, cancelledAt: new Date(), cancelReason: "Replaced by new checkout" },
   });
+
+  if (dailyRental && rentalPeriod) {
+    const booked = await getBookedRentalRanges(listing.id);
+    assertRentalDatesFree(rentalPeriod.startDate, rentalPeriod.endDate, booked);
+  }
 
   const order = await prisma.order.create({
     data: {

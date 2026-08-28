@@ -6,7 +6,7 @@ import { Heart } from "lucide-react";
 import { startMessage, toggleFavorite, reportContent, blockUser } from "@/actions/listings";
 import { SUGGESTED_FIRST_MESSAGE } from "@/lib/constants";
 import { RentalDateRange } from "@/components/rental-date-range";
-import { MAX_DAILY_RENTAL_DAYS, rentalDaysInclusive } from "@/lib/utils";
+import { formatDateLabel, MAX_DAILY_RENTAL_DAYS, overlappingBookedRange, rentalDaysInclusive, type RentalDateRangeValue } from "@/lib/utils";
 
 export function ListingActions({
   listingId,
@@ -17,6 +17,7 @@ export function ListingActions({
   buyLabel = "Buy Now",
   dailyRental = false,
   dailyRateCents = 0,
+  bookedRanges = [],
 }: {
   listingId: string;
   sellerId: string;
@@ -26,6 +27,7 @@ export function ListingActions({
   buyLabel?: string;
   dailyRental?: boolean;
   dailyRateCents?: number;
+  bookedRanges?: RentalDateRangeValue[];
 }) {
   const router = useRouter();
   const [saved, setSaved] = useState(favorited);
@@ -35,10 +37,24 @@ export function ListingActions({
   const [rentalStart, setRentalStart] = useState("");
   const [rentalEnd, setRentalEnd] = useState("");
   const rentalDays = dailyRental && rentalStart && rentalEnd ? rentalDaysInclusive(rentalStart, rentalEnd) : 0;
-  const rentalReady = !dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS);
+  const overlap = dailyRental ? overlappingBookedRange(rentalStart, rentalEnd, bookedRanges) : null;
+  const rentalReady = !dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS && !overlap);
 
   return (
     <div className="space-y-3">
+      {isOwner && dailyRental && bookedRanges.length > 0 && (
+        <div className="rounded-2xl bg-sand p-4 text-sm">
+          <p className="font-semibold">Booked dates</p>
+          <p className="mt-1 text-xs text-muted">Nobody else can rent these days until each booking ends.</p>
+          <ul className="mt-2 space-y-0.5 text-sm">
+            {bookedRanges.map((range) => (
+              <li key={`${range.startDate}-${range.endDate}`}>
+                {formatDateLabel(range.startDate)} – {formatDateLabel(range.endDate)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {!isOwner && (
         <>
           {canBuy && dailyRental && (
@@ -46,6 +62,7 @@ export function ListingActions({
               dailyRateCents={dailyRateCents}
               startDate={rentalStart}
               endDate={rentalEnd}
+              bookedRanges={bookedRanges}
               onChange={({ startDate, endDate }) => {
                 setRentalStart(startDate);
                 setRentalEnd(endDate);

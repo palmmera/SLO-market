@@ -106,6 +106,42 @@ export function validateRentalPeriod(startDate: string, endDate: string) {
   return { ok: true as const, days };
 }
 
+export type RentalDateRangeValue = { startDate: string; endDate: string };
+
+export function rangesOverlap(a: RentalDateRangeValue, b: RentalDateRangeValue) {
+  return a.startDate <= b.endDate && b.startDate <= a.endDate;
+}
+
+export function mergeRentalRanges(ranges: RentalDateRangeValue[]) {
+  const sorted = [...ranges].filter((r) => r.startDate && r.endDate).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const out: RentalDateRangeValue[] = [];
+  for (const range of sorted) {
+    const last = out[out.length - 1];
+    if (last && addCalendarDays(last.endDate, 1) >= range.startDate) {
+      if (range.endDate > last.endDate) last.endDate = range.endDate;
+    } else {
+      out.push({ startDate: range.startDate, endDate: range.endDate });
+    }
+  }
+  return out;
+}
+
+/** If today (or a candidate start) falls inside booked days, jump to the day after that booking. */
+export function nextAvailableStart(fromDate: string, booked: RentalDateRangeValue[]) {
+  let candidate = fromDate;
+  for (let i = 0; i < 40; i++) {
+    const hit = booked.find((b) => candidate >= b.startDate && candidate <= b.endDate);
+    if (!hit) return candidate;
+    candidate = addCalendarDays(hit.endDate, 1);
+  }
+  return candidate;
+}
+
+export function overlappingBookedRange(startDate: string, endDate: string, booked: RentalDateRangeValue[]) {
+  if (!startDate || !endDate) return null;
+  return booked.find((b) => rangesOverlap({ startDate, endDate }, b)) ?? null;
+}
+
 export function todayDateInput() {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");

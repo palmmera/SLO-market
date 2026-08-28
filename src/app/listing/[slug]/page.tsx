@@ -3,12 +3,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { conditionLabel, formatCityCounty, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType } from "@/lib/utils";
+import { conditionLabel, formatCityCounty, formatDateLabel, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType } from "@/lib/utils";
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
 import { calculateFees, getPlatformSettings } from "@/lib/fees";
 import { ListingStatus } from "@prisma/client";
+import { getBookedRentalRanges, rentalAvailability } from "@/lib/rental-availability";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const listing = await prisma.listing.findUnique({
@@ -92,6 +93,8 @@ export default async function ListingPage({
   const canBuy = listing.status === "ACTIVE" && isPayableListingType(listing.listingType) && listing.priceCents > 0;
   const housingRental = listing.listingType === "RENTAL" && isHousingRentalSlug(listing.category.slug);
   const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);
+  const bookedRanges = dailyRental ? await getBookedRentalRanges(listing.id) : [];
+  const availability = dailyRental ? rentalAvailability(bookedRanges) : null;
   const sp = await searchParams;
 
   return (
@@ -142,7 +145,13 @@ export default async function ListingPage({
             <p className="text-sm text-muted">Monthly rent — first month is paid here. Later months you arrange with the owner.</p>
           )}
           {dailyRental && listing.priceCents > 0 && (
-            <p className="text-sm text-muted">Price is per day. Pick start and end dates — you pay days × daily rate.</p>
+            <p className="text-sm text-muted">Price is per day. Pick pickup and return dates — you pay days × daily rate.</p>
+          )}
+          {availability?.current && (
+            <p className="rounded-2xl bg-gold/20 px-4 py-3 text-sm">
+              Currently rented through {formatDateLabel(availability.current.endDate)}. Next available{" "}
+              <strong>{formatDateLabel(availability.nextStart)}</strong>.
+            </p>
           )}
           {listing.status !== "ACTIVE" && (
             <p className="font-semibold text-clay">
@@ -182,6 +191,7 @@ export default async function ListingPage({
             isOwner={session?.user?.id === listing.sellerId}
             dailyRental={dailyRental}
             dailyRateCents={listing.priceCents}
+            bookedRanges={bookedRanges}
           />
           <Link href={`/u/${listing.seller.id}`} className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow">
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-ocean-light font-semibold text-ocean">

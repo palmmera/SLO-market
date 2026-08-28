@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createCheckoutSession } from "@/actions/orders";
-import { formatMoney, MAX_DAILY_RENTAL_DAYS, rentalDaysInclusive } from "@/lib/utils";
+import { formatMoney, MAX_DAILY_RENTAL_DAYS, overlappingBookedRange, rentalDaysInclusive, type RentalDateRangeValue } from "@/lib/utils";
 import { RentalDateRange } from "@/components/rental-date-range";
 
 export function CheckoutForm({
@@ -19,6 +19,7 @@ export function CheckoutForm({
   dailyRental = false,
   initialStartDate = "",
   initialEndDate = "",
+  bookedRanges = [],
 }: {
   listingId: string;
   title: string;
@@ -33,6 +34,7 @@ export function CheckoutForm({
   dailyRental?: boolean;
   initialStartDate?: string;
   initialEndDate?: string;
+  bookedRanges?: RentalDateRangeValue[];
 }) {
   const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">("PICKUP_ONLY");
   const [error, setError] = useState("");
@@ -40,10 +42,11 @@ export function CheckoutForm({
   const [rentalStart, setRentalStart] = useState(initialStartDate);
   const [rentalEnd, setRentalEnd] = useState(initialEndDate);
   const rentalDays = dailyRental && rentalStart && rentalEnd ? rentalDaysInclusive(rentalStart, rentalEnd) : 0;
+  const overlap = dailyRental ? overlappingBookedRange(rentalStart, rentalEnd, bookedRanges) : null;
   const rentalTotal = dailyRental ? rentalDays * itemPriceCents : itemPriceCents;
   const delivery = fulfillment === "LOCAL_DELIVERY" && canDeliver ? (freeDelivery ? 0 : deliveryFeeCents) : 0;
   const total = rentalTotal + delivery;
-  const canPay = payoutsEnabled && (!dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS));
+  const canPay = payoutsEnabled && (!dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS && !overlap));
 
   return (
     <div className="space-y-4 rounded-3xl bg-white p-5 card-shadow">
@@ -62,6 +65,7 @@ export function CheckoutForm({
           dailyRateCents={itemPriceCents}
           startDate={rentalStart}
           endDate={rentalEnd}
+          bookedRanges={bookedRanges}
           onChange={({ startDate, endDate }) => {
             setRentalStart(startDate);
             setRentalEnd(endDate);
@@ -87,7 +91,7 @@ export function CheckoutForm({
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between">
           <dt>{housingRental ? "First month’s rent" : dailyRental ? "Rental" : "Item price"}</dt>
-          <dd>{dailyRental && rentalDays < 1 ? "—" : formatMoney(rentalTotal)}</dd>
+          <dd>{dailyRental && (rentalDays < 1 || overlap) ? "—" : formatMoney(rentalTotal)}</dd>
         </div>
         {!housingRental && (
         <div className="flex justify-between">
@@ -97,7 +101,7 @@ export function CheckoutForm({
         )}
         <div className="flex justify-between font-semibold">
           <dt>Total</dt>
-          <dd>{dailyRental && rentalDays < 1 ? "—" : formatMoney(total)}</dd>
+          <dd>{dailyRental && (rentalDays < 1 || overlap) ? "—" : formatMoney(total)}</dd>
         </div>
       </dl>
       {!payoutsEnabled && (

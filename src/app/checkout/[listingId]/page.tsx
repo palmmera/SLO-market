@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { CheckoutForm } from "@/components/checkout-form";
 import { ListingStatus } from "@prisma/client";
 import { isDailyRentalListing, isHousingRentalSlug } from "@/lib/utils";
+import { getBookedRentalRanges } from "@/lib/rental-availability";
 
 export default async function CheckoutPage({
   params,
@@ -22,6 +23,7 @@ export default async function CheckoutPage({
   const sp = await searchParams;
   const housingRental = isHousingRentalSlug(listing.category.slug);
   const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);
+  const bookedRanges = dailyRental ? await getBookedRentalRanges(listing.id) : [];
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
@@ -39,6 +41,7 @@ export default async function CheckoutPage({
         dailyRental={dailyRental}
         initialStartDate={sp.from || ""}
         initialEndDate={sp.to || ""}
+        bookedRanges={bookedRanges}
       />
       <p className="mt-4 text-xs text-muted">Card numbers never touch SLO Market servers.</p>
     </div>
