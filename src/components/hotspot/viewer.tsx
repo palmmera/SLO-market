@@ -217,10 +217,6 @@ export function InteractivePhotoViewer({
                 : formatMoney(selected.priceCents)}
           </div>
           {selected.condition && <p className="mt-2 text-sm text-muted">Condition: {selected.condition}</p>}
-          <div className="mt-3">
-            <h3 className="font-display text-lg">Description</h3>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6">{selected.description || "See photo."}</p>
-          </div>
           {fulfillmentNote && !isUnavailable(selected.status) && (
             <p className="mt-3 rounded-2xl bg-sand px-3 py-2 text-sm">{fulfillmentNote}</p>
           )}
@@ -295,6 +291,13 @@ export function InteractivePhotoViewer({
         </div>
         <div className="lg:sticky lg:top-4 lg:self-start">{detailPanel}</div>
       </div>
+
+      {selected && (
+        <section className="mt-6 rounded-3xl bg-white p-6 card-shadow">
+          <h2 className="font-display text-2xl">Description</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{selected.description || "See photo."}</p>
+        </section>
+      )}
 
       {expanded && (
         <div className="fixed inset-0 z-[60] flex bg-black/95 backdrop-blur-sm">
