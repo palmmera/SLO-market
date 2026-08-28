@@ -30,6 +30,7 @@ type CategorySeed = {
   isProduce?: boolean;
   isFree?: boolean;
   isRental?: boolean;
+  isService?: boolean;
   isActive?: boolean;
   seoTitle?: string;
   seoDescription?: string;
@@ -204,18 +205,19 @@ const categories: CategorySeed[] = [
     name: "Services",
     slug: "services",
     icon: "wrench",
+    isService: true,
     seoTitle: "Local Services in San Luis Obispo County | SLO Market",
     seoDescription: "Find and offer local services in SLO County. Handyman, cleaning, tutoring, photography, and more.",
     children: [
       { name: "Home Services", slug: "home-services" },
       { name: "Cleaning", slug: "cleaning-services" },
       { name: "Handyman", slug: "handyman" },
+      { name: "Other Services", slug: "other-services" },
       { name: "Tutoring & Lessons", slug: "tutoring" },
       { name: "Photography", slug: "photography" },
       { name: "Pet Services", slug: "pet-services" },
       { name: "Yard & Garden", slug: "yard-services" },
       { name: "Moving & Delivery", slug: "moving-services" },
-      { name: "Other Services", slug: "other-services" },
     ],
   },
   {
@@ -300,6 +302,7 @@ async function main() {
         isProduce: Boolean(cat.isProduce),
         isFree: Boolean(cat.isFree),
         isRental: Boolean(cat.isRental),
+        isService: Boolean(cat.isService),
         isActive: cat.isActive !== false,
         sortOrder: index,
         seoTitle: cat.seoTitle,
@@ -312,6 +315,7 @@ async function main() {
         isProduce: Boolean(cat.isProduce),
         isFree: Boolean(cat.isFree),
         isRental: Boolean(cat.isRental),
+        isService: Boolean(cat.isService),
         isActive: cat.isActive !== false,
         sortOrder: index,
         seoTitle: cat.seoTitle,
@@ -329,6 +333,7 @@ async function main() {
             sortOrder: childIndex,
             isProduce: Boolean(cat.isProduce),
             isRental: Boolean(cat.isRental),
+            isService: Boolean(cat.isService),
           },
           create: {
             name: child.name,
@@ -337,6 +342,7 @@ async function main() {
             sortOrder: childIndex,
             isProduce: Boolean(cat.isProduce),
             isRental: Boolean(cat.isRental),
+            isService: Boolean(cat.isService),
           },
         });
       }

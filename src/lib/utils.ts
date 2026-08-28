@@ -50,6 +50,22 @@ export function isHousingRentalSlug(slug?: string | null) {
   return slug === "rental-rooms" || slug === "rental-houses";
 }
 
+export const SERVICE_CATEGORY_SLUGS = [
+  "home-services",
+  "cleaning-services",
+  "handyman",
+  "other-services",
+  "tutoring",
+  "photography",
+  "pet-services",
+  "yard-services",
+  "moving-services",
+] as const;
+
+export function isServiceSlug(slug?: string | null) {
+  return slug === "services" || Boolean(slug && (SERVICE_CATEGORY_SLUGS as readonly string[]).includes(slug));
+}
+
 export const DAILY_RENTAL_SLUGS = [
   "rental-power-tools",
   "rental-equipment",

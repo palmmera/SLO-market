@@ -59,6 +59,7 @@ export async function adminSaveCategory(formData: FormData) {
     isProduce: formData.get("isProduce") === "on",
     isFree: formData.get("isFree") === "on",
     isRental: formData.get("isRental") === "on",
+    isService: formData.get("isService") === "on",
   };
   if (id) await prisma.category.update({ where: { id }, data });
   else await prisma.category.create({ data });

@@ -14,7 +14,7 @@ import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
-import { isHousingRentalSlug } from "@/lib/utils";
+import { isHousingRentalSlug, isServiceSlug } from "@/lib/utils";
 
 /** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */
 function newExpiry() {
@@ -85,12 +85,15 @@ async function createListingInner(formData: FormData) {
 
   const isProduce = Boolean(category.isProduce || category.parent?.isProduce || produceProductType);
   const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
+  const isServiceCat = Boolean(category.isService || category.parent?.isService || isServiceSlug(category.slug) || isServiceSlug(category.parent?.slug));
   if (isProduce) {
     const foodSeller = await getActiveFoodSeller(user.id);
     if (!foodSeller) return { error: FOOD_SELLER_REQUIRED_MESSAGE };
   }
   if (listingType === "RENTAL" && !isRentalCat) return { error: "Choose a rental category (cars, rooms, houses, tools, or equipment)." };
   if (listingType !== "RENTAL" && isRentalCat) return { error: "Rental categories are only for Rentals listings." };
+  if (listingType === "SERVICE" && !isServiceCat) return { error: "Choose a service category (cleaning, handyman, tutoring, and more)." };
+  if (listingType !== "SERVICE" && isServiceCat) return { error: "Service categories are only for Service listings." };
   if ((listingType === "FOR_SALE" || listingType === "RENTAL" || listingType === "SERVICE") && !(price > 0)) {
     return { error: listingType === "RENTAL" ? (isHousingRentalSlug(category.slug) ? "Enter a nightly rate." : "Enter a daily rate.") : "Enter a price." };
   }
@@ -268,8 +271,11 @@ export async function updateListing(listingId: string, formData: FormData) {
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!category || !city) throw new Error("Please choose a valid category and city.");
   const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
+  const isServiceCat = Boolean(category.isService || category.parent?.isService || isServiceSlug(category.slug) || isServiceSlug(category.parent?.slug));
   if (listingType === "RENTAL" && !isRentalCat) throw new Error("Choose a rental category.");
   if (listingType !== "RENTAL" && isRentalCat) throw new Error("Rental categories are only for Rentals listings.");
+  if (listingType === "SERVICE" && !isServiceCat) throw new Error("Choose a service category.");
+  if (listingType !== "SERVICE" && isServiceCat) throw new Error("Service categories are only for Service listings.");
   const housingRental = isHousingRentalSlug(category.slug);
   const savedFulfillment = housingRental ? FulfillmentMethod.PICKUP_ONLY : fulfillment;
 

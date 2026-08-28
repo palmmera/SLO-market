@@ -8,9 +8,10 @@ import { connectStripeAccount } from "@/actions/orders";
 import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
 import { RentalTypePicker } from "@/components/rental-type-picker";
-import { isHousingRentalSlug } from "@/lib/utils";
+import { ServiceTypePicker } from "@/components/service-type-picker";
+import { isHousingRentalSlug, isServiceSlug } from "@/lib/utils";
 
-type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
+type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
 type ExistingImage = { id: string; url: string; thumbnailUrl: string | null };
 
@@ -47,6 +48,7 @@ export function EditListingForm({
   const router = useRouter();
   const parents = categories.filter((c) => !c.parentId);
   const rentalParent = parents.find((p) => p.isRental);
+  const serviceParent = parents.find((p) => p.isService || p.slug === "services");
   const categoryRecord = categories.find((c) => c.id === listing.categoryId);
   const initialParent =
     listing.categoryParentId ||
@@ -69,9 +71,14 @@ export function EditListingForm({
   const libraryRef = useRef<HTMLInputElement>(null);
   const selectedParent = parents.find((p) => p.id === parentId);
   const isRentalListing = listingType === "RENTAL";
+  const isServiceListing = listingType === "SERVICE";
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const isHousingRental = isRentalListing && isHousingRentalSlug(selectedCategory?.slug);
-  const categoryParents = isRentalListing ? parents.filter((p) => p.isRental) : parents.filter((p) => !p.isRental);
+  const categoryParents = isRentalListing
+    ? parents.filter((p) => p.isRental)
+    : isServiceListing
+      ? parents.filter((p) => p.isService || p.slug === "services")
+      : parents.filter((p) => !p.isRental && !p.isService && p.slug !== "services");
   const totalPhotoCount = existingImages.length + newPhotos.length;
 
   useEffect(() => {
@@ -81,8 +88,20 @@ export function EditListingForm({
       if (nextChildren.length && !nextChildren.some((c) => c.id === categoryId)) {
         setCategoryId(nextChildren[0].id);
       }
-    } else if (!isRentalListing && rentalParent && parentId === rentalParent.id) {
-      const fallback = parents.find((p) => !p.isRental && !p.isProduce) ?? parents.find((p) => !p.isRental);
+    } else if (isServiceListing && serviceParent && parentId !== serviceParent.id) {
+      setParentId(serviceParent.id);
+      const nextChildren = categories.filter((c) => c.parentId === serviceParent.id);
+      if (nextChildren.length && !nextChildren.some((c) => c.id === categoryId)) {
+        setCategoryId(nextChildren[0].id);
+      }
+    } else if (
+      !isRentalListing &&
+      !isServiceListing &&
+      (parentId === rentalParent?.id || parentId === serviceParent?.id)
+    ) {
+      const fallback =
+        parents.find((p) => !p.isRental && !p.isService && p.slug !== "services" && !p.isProduce) ??
+        parents.find((p) => !p.isRental && !p.isService && p.slug !== "services");
       if (fallback) {
         setParentId(fallback.id);
         const nextChildren = categories.filter((c) => c.parentId === fallback.id);
@@ -137,6 +156,7 @@ export function EditListingForm({
         const form = new FormData(e.currentTarget);
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
+        form.set("categoryId", categoryId);
         for (const id of removeImageIds) form.append("removeImageIds", id);
         for (const p of newPhotos) form.append("photos", p.file);
         start(async () => {
@@ -271,9 +291,19 @@ export function EditListingForm({
       </section>
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
-        <h2 className="font-semibold">{isRentalListing ? "Rental type" : "Category"}</h2>
+        <h2 className="font-semibold">{isRentalListing ? "Rental type" : isServiceListing ? "Service type" : "Category"}</h2>
         {isRentalListing ? (
           <RentalTypePicker options={categoryOptions} value={categoryId} onChange={setCategoryId} />
+        ) : isServiceListing ? (
+          <ServiceTypePicker
+            options={
+              serviceParent
+                ? categories.filter((c) => c.parentId === serviceParent.id || (isServiceSlug(c.slug) && c.slug !== "services"))
+                : categoryOptions
+            }
+            value={categoryId}
+            onChange={setCategoryId}
+          />
         ) : (
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <select

@@ -4,6 +4,7 @@ import { ListingGrid, type CollectionCardData } from "@/components/listing-card"
 import { getActiveGarageSales, getActiveProduceStands } from "@/lib/listings";
 import { ListingStatus } from "@prisma/client";
 import { RESERVED_PATHS } from "@/lib/constants";
+import { isServiceSlug } from "@/lib/utils";
 import type { Metadata } from "next";
 
 function toCollectionCards(rows: Awaited<ReturnType<typeof getActiveGarageSales>>): CollectionCardData[] {
@@ -60,7 +61,7 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
   }
 
   const category = await safeDb(
-    () => prisma.category.findUnique({ where: { slug }, include: { children: true } }),
+    () => prisma.category.findUnique({ where: { slug }, include: { children: true, parent: true } }),
     null,
   );
   if (!category) notFound();
@@ -98,7 +99,16 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
         where: {
           status: ListingStatus.ACTIVE,
           collectionId: null,
-          ...(category.isFree ? { listingType: "FREE" } : { categoryId: { in: ids } }),
+          ...(category.isFree
+            ? { listingType: "FREE" }
+            : {
+                categoryId: { in: ids },
+                ...(category.isService || category.slug === "services" || category.parent?.isService || isServiceSlug(category.slug)
+                  ? { listingType: "SERVICE" as const }
+                  : category.isRental
+                    ? { listingType: "RENTAL" as const }
+                    : {}),
+              }),
         },
         include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, category: { select: { slug: true } } },
         orderBy: { publishedAt: "desc" },
@@ -119,6 +129,9 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
         <p className="mt-3 rounded-2xl bg-ocean-light px-4 py-3 text-sm text-ocean-dark">
           Local produce only. Sellers are responsible for following California and San Luis Obispo County rules for agricultural and cottage-food sales. SLO Marketplace does not inspect or certify food.
         </p>
+      )}
+      {(category.isService || category.slug === "services" || isServiceSlug(category.slug)) && (
+        <p className="mt-3 text-sm text-muted">Local services from neighbors. Message the provider to arrange details, scheduling, and payment.</p>
       )}
       {category.children.length > 0 && (
         <div className="mt-5 flex flex-wrap gap-2">

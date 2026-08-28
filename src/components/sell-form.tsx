@@ -10,10 +10,11 @@ import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-sel
 import { compressImage } from "@/lib/image-compress";
 import Link from "next/link";
 import { RentalTypePicker } from "@/components/rental-type-picker";
+import { ServiceTypePicker } from "@/components/service-type-picker";
 import { ProduceProductType } from "@prisma/client";
-import { isHousingRentalSlug } from "@/lib/utils";
+import { isHousingRentalSlug, isServiceSlug } from "@/lib/utils";
 
-type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean };
+type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
 export function SellForm({
   categories,
@@ -36,12 +37,17 @@ export function SellForm({
   const parents = categories.filter((c) => !c.parentId);
   const produceParent = parents.find((p) => p.isProduce);
   const rentalParent = parents.find((p) => p.isRental);
-  const initialParent = produceMode && defaultParentId ? defaultParentId : parents.find((p) => !p.isRental)?.id ?? parents[0]?.id ?? "";
+  const serviceParent = parents.find((p) => p.isService || p.slug === "services");
+  const initialParent =
+    produceMode && defaultParentId
+      ? defaultParentId
+      : parents.find((p) => !p.isRental && !p.isService && p.slug !== "services")?.id ?? parents[0]?.id ?? "";
   const [parentId, setParentId] = useState(initialParent);
   const children = useMemo(() => categories.filter((c) => c.parentId === parentId), [categories, parentId]);
   const [produceProductType, setProduceProductType] = useState<ProduceProductType>("FRESH_PRODUCE");
   const [listingType, setListingType] = useState("FOR_SALE");
   const [rentalCategoryId, setRentalCategoryId] = useState("");
+  const [serviceCategoryId, setServiceCategoryId] = useState("");
   const [fulfillment, setFulfillment] = useState("PICKUP_ONLY");
   const [enhanced, setEnhanced] = useState(false);
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
@@ -52,18 +58,25 @@ export function SellForm({
   const selectedParent = parents.find((p) => p.id === parentId);
   const isProduceListing = produceMode || Boolean(selectedParent?.isProduce);
   const isRentalListing = listingType === "RENTAL";
+  const isServiceListing = listingType === "SERVICE";
   const rentalCategory = categories.find((c) => c.id === rentalCategoryId);
   const isHousingRental = isRentalListing && isHousingRentalSlug(rentalCategory?.slug);
   const showPermitFields = isProduceListing && produceTypeRequiresPermit(produceProductType);
   const categoryParents = isRentalListing
     ? parents.filter((p) => p.isRental)
-    : parents.filter((p) => !p.isRental);
+    : isServiceListing
+      ? parents.filter((p) => p.isService || p.slug === "services")
+      : parents.filter((p) => !p.isRental && !p.isService && p.slug !== "services");
 
   useEffect(() => {
     if (isRentalListing && rentalParent && parentId !== rentalParent.id) {
       setParentId(rentalParent.id);
-    } else if (!isRentalListing && rentalParent && parentId === rentalParent.id) {
-      const fallback = parents.find((p) => !p.isRental && !p.isProduce) ?? parents.find((p) => !p.isRental);
+    } else if (isServiceListing && serviceParent && parentId !== serviceParent.id) {
+      setParentId(serviceParent.id);
+    } else if (!isRentalListing && !isServiceListing && (parentId === rentalParent?.id || parentId === serviceParent?.id)) {
+      const fallback =
+        parents.find((p) => !p.isRental && !p.isService && p.slug !== "services" && !p.isProduce) ??
+        parents.find((p) => !p.isRental && !p.isService && p.slug !== "services");
       if (fallback) setParentId(fallback.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,6 +129,13 @@ export function SellForm({
             return;
           }
           form.set("categoryId", rentalCategoryId);
+        }
+        if (isServiceListing) {
+          if (!serviceCategoryId) {
+            setError("Choose a service category.");
+            return;
+          }
+          form.set("categoryId", serviceCategoryId);
         }
         if (isProduceListing) {
           form.set("produceProductType", produceProductType);
@@ -245,14 +265,18 @@ export function SellForm({
               ? "e.g. Heirloom tomatoes, local honey"
               : isRentalListing
                 ? "What are you renting?"
-                : "What are you selling?"
+                : isServiceListing
+                  ? "What service are you offering?"
+                  : "What are you selling?"
           }
           className="mt-3 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
         />
       </section>
 
       <section className="rounded-3xl bg-white p-5 card-shadow">
-        <h2 className="font-semibold">3. {isProduceListing ? "Product type" : isRentalListing ? "Rental type" : "Category"}</h2>
+        <h2 className="font-semibold">
+          3. {isProduceListing ? "Product type" : isRentalListing ? "Rental type" : isServiceListing ? "Service type" : "Category"}
+        </h2>
         {produceMode ? (
           <select
             name="produceProductType"
@@ -277,6 +301,18 @@ export function SellForm({
             }
             value={rentalCategoryId}
             onChange={setRentalCategoryId}
+          />
+        ) : isServiceListing ? (
+          <ServiceTypePicker
+            options={
+              serviceParent
+                ? categories.filter((c) => c.parentId === serviceParent.id || (isServiceSlug(c.slug) && c.slug !== "services"))
+                : children.length
+                  ? children
+                  : categoryParents
+            }
+            value={serviceCategoryId}
+            onChange={setServiceCategoryId}
           />
         ) : (
           <div className="mt-3 grid gap-3 md:grid-cols-2">

@@ -295,6 +295,7 @@ model Category {
   isProduce      Boolean    @default(false)
   isFree         Boolean    @default(false)
   isRental       Boolean    @default(false)
+  isService      Boolean    @default(false)
   sortOrder      Int        @default(0)
   seoTitle       String?
   seoDescription String?
