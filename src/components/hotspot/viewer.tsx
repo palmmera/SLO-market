@@ -270,9 +270,9 @@ export function InteractivePhotoViewer({
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="relative overflow-hidden rounded-[28px] bg-ink">
-          {stage("aspect-[4/3] w-full")}
+      <div className="grid items-start gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="relative aspect-[4/3] w-full self-start overflow-hidden rounded-[28px] bg-ink">
+          {stage("h-full w-full")}
           <div className="absolute right-3 top-3 flex items-center gap-1.5">
             {zoomControls}
             <button
