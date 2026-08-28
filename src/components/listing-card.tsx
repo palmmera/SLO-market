@@ -56,12 +56,11 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
         <div className="flex items-start justify-between gap-2">
           <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{listing.title}</h3>
           <div className={`shrink-0 text-right text-sm font-bold ${free ? "text-ocean" : "text-ink"}`}>
-            {free ? "FREE" : housing ? `${formatMoney(listing.priceCents)}/mo` : daily ? `${formatMoney(listing.priceCents)}/day` : formatMoney(listing.priceCents)}
+            {free ? "FREE" : housing ? `${formatMoney(listing.priceCents)}/night` : daily ? `${formatMoney(listing.priceCents)}/day` : formatMoney(listing.priceCents)}
           </div>
         </div>
         <p className="mt-1 text-xs text-muted">{formatCityCounty(listing.city.name)}</p>
-        {housing && <p className="mt-1 text-[11px] text-ocean">First month paid here</p>}
-        {daily && <p className="mt-1 text-[11px] text-ocean">Per day</p>}
+        {housing ? <p className="mt-1 text-[11px] text-ocean">Per night</p> : daily && <p className="mt-1 text-[11px] text-ocean">Per day</p>}
         {listing.fulfillment === "LOCAL_DELIVERY" && (
           <p className="mt-1 text-[11px] text-ocean">{listing.freeDelivery ? "Free local delivery" : "Local delivery available"}</p>
         )}

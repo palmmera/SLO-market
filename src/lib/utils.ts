@@ -65,9 +65,9 @@ export function isDailyRentalSlug(slug?: string | null) {
   return Boolean(slug && (DAILY_RENTAL_SLUGS as readonly string[]).includes(slug));
 }
 
-/** Tools, trailers, cars, party, outdoor — priced per day, not first-month housing. */
-export function isDailyRentalListing(listingType?: string | null, categorySlug?: string | null) {
-  return listingType === "RENTAL" && !isHousingRentalSlug(categorySlug);
+/** Every rental (tools, trailers, cars, party, outdoor, rooms, houses) is priced per day. */
+export function isDailyRentalListing(listingType?: string | null, _categorySlug?: string | null) {
+  return listingType === "RENTAL";
 }
 
 /** Inclusive calendar days. Jan 1–Jan 5 = 5 days. Same-day start and end = 1 day. */

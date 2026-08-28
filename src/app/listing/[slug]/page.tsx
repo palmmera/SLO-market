@@ -135,17 +135,16 @@ export default async function ListingPage({
           <div className="text-3xl font-bold text-ocean">
             {listing.listingType === "FREE" || listing.priceCents === 0
               ? "FREE"
-              : housingRental
-                ? `${formatMoney(listing.priceCents)}/mo`
-                : dailyRental
-                  ? `${formatMoney(listing.priceCents)}/day`
-                  : formatMoney(listing.priceCents)}
+              : dailyRental
+                ? `${formatMoney(listing.priceCents)}/day`
+                : formatMoney(listing.priceCents)}
           </div>
-          {housingRental && listing.priceCents > 0 && (
-            <p className="text-sm text-muted">Monthly rent — first month is paid here. Later months you arrange with the owner.</p>
-          )}
           {dailyRental && listing.priceCents > 0 && (
-            <p className="text-sm text-muted">Price is per day. Pick pickup and return dates — you pay days × daily rate.</p>
+            <p className="text-sm text-muted">
+              {housingRental
+                ? "Price is per night. Pick check-in and check-out — you pay nights × daily rate."
+                : "Price is per day. Pick pickup and return dates — you pay days × daily rate."}
+            </p>
           )}
           {availability?.current && (
             <p className="rounded-2xl bg-gold/20 px-4 py-3 text-sm">
@@ -167,7 +166,7 @@ export default async function ListingPage({
             {listing.listingType === "SERVICE"
               ? "Local service — message the provider to arrange details, scheduling, and payment."
               : housingRental
-                ? "First month is paid through SLO Market. After that, arrange rent, showing, and move-in with the owner in Messages. Exact address is not shown."
+                ? "Booked and paid per night through SLO Market. Arrange check-in, keys, and any deposit with the owner in Messages. Exact address is not shown."
               : listing.listingType === "RENTAL" && listing.fulfillment === "PICKUP_ONLY"
                 ? "Pickup / return locally — arrange a public meetup after payment. Exact address is not shown."
                 : listing.fulfillment === "PICKUP_ONLY"
@@ -186,7 +185,7 @@ export default async function ListingPage({
             listingId={listing.id}
             sellerId={listing.sellerId}
             canBuy={canBuy}
-            buyLabel={housingRental ? "Pay first month" : dailyRental ? "Rent Now" : "Buy Now"}
+            buyLabel={dailyRental ? "Rent Now" : "Buy Now"}
             favorited={favorited}
             isOwner={session?.user?.id === listing.sellerId}
             dailyRental={dailyRental}

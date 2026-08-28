@@ -50,14 +50,14 @@ export function CheckoutForm({
 
   return (
     <div className="space-y-4 rounded-3xl bg-white p-5 card-shadow">
-      <h1 className="font-display text-3xl">{housingRental ? "Pay first month" : dailyRental ? "Rent" : "Pay Securely"}</h1>
+      <h1 className="font-display text-3xl">{dailyRental ? "Rent" : "Pay Securely"}</h1>
       <div className="text-sm">
         <div className="font-semibold">{title}</div>
         <div className="text-muted">Seller: {sellerName}</div>
       </div>
       {housingRental && (
         <p className="rounded-2xl bg-sand p-3 text-sm">
-          This is <strong>one month’s rent</strong>. You pay the first month here. Later months you arrange with the owner.
+          Pick your check-in and check-out dates. You pay the daily rate × number of nights up front. Arrange the rest with the owner in Messages.
         </p>
       )}
       {dailyRental && (
@@ -90,7 +90,7 @@ export function CheckoutForm({
       )}
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between">
-          <dt>{housingRental ? "First month’s rent" : dailyRental ? "Rental" : "Item price"}</dt>
+          <dt>{dailyRental ? "Rental" : "Item price"}</dt>
           <dd>{dailyRental && (rentalDays < 1 || overlap) ? "—" : formatMoney(rentalTotal)}</dd>
         </div>
         {!housingRental && (
@@ -126,7 +126,7 @@ export function CheckoutForm({
         }
         className="w-full rounded-2xl bg-ocean py-3.5 font-semibold text-white disabled:opacity-50"
       >
-        {pending ? "Redirecting to Stripe..." : housingRental ? "Pay first month" : dailyRental ? "Pay rental" : "Pay Securely"}
+        {pending ? "Redirecting to Stripe..." : dailyRental ? "Pay rental" : "Pay Securely"}
       </button>
     </div>
   );

@@ -376,7 +376,7 @@ export function SellForm({
         {listingType === "RENTAL" && (
           <label className="mt-4 block">
             <span className="text-sm font-medium">
-              {isHousingRental ? "4. Monthly rent (first month paid here)" : "4. Price per day"}
+              {isHousingRental ? "4. Price per night" : "4. Price per day"}
             </span>
             <input
               name="price"
@@ -384,7 +384,7 @@ export function SellForm({
               min="1"
               step="0.01"
               required
-              placeholder={isHousingRental ? "e.g. 1800 per month" : "e.g. 10 per day"}
+              placeholder={isHousingRental ? "e.g. 100 per night" : "e.g. 10 per day"}
               className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
             />
           </label>
@@ -417,7 +417,7 @@ export function SellForm({
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
             {isHousingRental
-              ? "Enter one month’s rent. The renter pays the first month through SLO Market. Later months you arrange directly with them."
+              ? "Enter the nightly rate. Guests pick check-in and check-out on a calendar and pay this rate × number of nights."
               : "Enter the daily rate. Renters pick start and end dates on a calendar and pay this rate × number of days."}
           </p>
         )}

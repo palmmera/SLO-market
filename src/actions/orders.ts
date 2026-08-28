@@ -133,11 +133,9 @@ export async function createCheckoutSession(
     },
   });
 
-  const productName = housingRental
-    ? `${listing.title} — first month’s rent`
-    : dailyRental
-      ? `${listing.title} — ${rentalDays}-day rental (${formatDateLabel(rentalPeriod!.startDate)} to ${formatDateLabel(rentalPeriod!.endDate)})`
-      : listing.title;
+  const productName = dailyRental
+    ? `${listing.title} — ${rentalDays}-day rental (${formatDateLabel(rentalPeriod!.startDate)} to ${formatDateLabel(rentalPeriod!.endDate)})`
+    : listing.title;
 
   // Direct charge on the connected account (Stripe-Account header).
   // Stripe bills payment-processing fees to the seller; platform takes application_fee only.

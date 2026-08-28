@@ -92,7 +92,7 @@ async function createListingInner(formData: FormData) {
   if (listingType === "RENTAL" && !isRentalCat) return { error: "Choose a rental category (cars, rooms, houses, tools, or equipment)." };
   if (listingType !== "RENTAL" && isRentalCat) return { error: "Rental categories are only for Rentals listings." };
   if ((listingType === "FOR_SALE" || listingType === "RENTAL" || listingType === "SERVICE") && !(price > 0)) {
-    return { error: listingType === "RENTAL" ? (isHousingRentalSlug(category.slug) ? "Enter a monthly rent." : "Enter a daily rate.") : "Enter a price." };
+    return { error: listingType === "RENTAL" ? (isHousingRentalSlug(category.slug) ? "Enter a nightly rate." : "Enter a daily rate.") : "Enter a price." };
   }
   const housingRental = isHousingRentalSlug(category.slug);
   const savedFulfillment = housingRental ? FulfillmentMethod.PICKUP_ONLY : fulfillment;

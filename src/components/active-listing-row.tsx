@@ -34,7 +34,7 @@ export function ActiveListingRow({ listing }: { listing: ActiveListingRowData })
   const housing = isHousingRentalSlug(listing.category?.slug);
   const daily = isDailyRentalListing(listing.listingType, listing.category?.slug);
   const priceLabel = housing
-    ? `${formatMoney(listing.priceCents)}/mo`
+    ? `${formatMoney(listing.priceCents)}/night`
     : daily
       ? `${formatMoney(listing.priceCents)}/day`
       : rental
