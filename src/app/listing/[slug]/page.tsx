@@ -108,7 +108,6 @@ export default async function ListingPage({
           {listing.collection?.images[0] ? (
             <InteractivePhotoViewer
               imageUrl={listing.collection.images[0].originalUrl || listing.collection.images[0].displayUrl || ""}
-              videoUrl={listing.collection.images[0].videoUrl}
               items={listing.collection.images[0].hotspots.map((h) => ({
                 id: h.listing.id,
                 slug: h.listing.slug,
@@ -121,7 +120,6 @@ export default async function ListingPage({
                 width: h.width,
                 height: h.height,
                 markerLabel: h.markerLabel,
-                atSeconds: h.atSeconds,
               }))}
               hideSold={listing.collection.hideSold}
             />

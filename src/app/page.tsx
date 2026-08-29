@@ -20,7 +20,6 @@ function toCollectionCards(
       ? Math.min(...c.listings.map((l) => l.priceCents))
       : null,
     imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
-    exploreVideo: Boolean(c.images[0]?.videoUrl),
   }));
 }
 

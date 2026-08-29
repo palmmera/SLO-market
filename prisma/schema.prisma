@@ -385,7 +385,6 @@ model ListingHotspot {
   defects            String?
   additionalDetails  String?
   pickupNotes        String?
-  atSeconds          Float?
 }
 
 model Collection {
@@ -418,8 +417,6 @@ model CollectionImage {
   width        Int?
   height       Int?
   sortOrder    Int              @default(0)
-  videoUrl     String?
-  durationSec  Float?
   hotspots     ListingHotspot[]
 }
 

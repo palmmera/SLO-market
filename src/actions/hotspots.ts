@@ -4,7 +4,7 @@ import { Condition, CollectionType, FulfillmentMethod, ListingStatus, ListingTyp
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { uniqueCollectionSlug, uniqueListingSlug } from "@/lib/slug";
-import { saveListingImage, saveExploreVideo } from "@/lib/storage";
+import { saveListingImage } from "@/lib/storage";
 import { revalidatePath } from "next/cache";
 import { assertFoodSellerForProduce } from "@/actions/food-seller";
 import { resolveProduceCategoryId } from "@/lib/food-seller";
@@ -23,40 +23,11 @@ export async function createPhotoCollection(formData: FormData) {
   const categoryId = String(formData.get("categoryId") || "");
   const type = (String(formData.get("type") || "GARAGE_SALE") as CollectionType);
   const photo = formData.get("photo");
-  const video = formData.get("video");
-  const poster = formData.get("poster");
-  const durationSec = Number(formData.get("duration") || 0);
-  const hasVideo = video instanceof File && video.size > 0;
-  const hasPhoto = photo instanceof File && photo.size > 0;
-  if (!hasVideo && !hasPhoto) throw new Error("Please upload a photo or a short video.");
-  if (type === "PRODUCE_STAND" && hasVideo) throw new Error("Produce stands use a photo.");
+  if (!(photo instanceof File) || !photo.size) throw new Error("Please upload a photo.");
   if (type === "PRODUCE_STAND") await assertFoodSellerForProduce(user.id);
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!city) throw new Error("Choose a city.");
-
-  let originalUrl: string;
-  let displayUrl: string;
-  let width: number | null;
-  let height: number | null;
-  let videoUrl: string | undefined;
-  let duration: number | null | undefined;
-
-  if (hasVideo) {
-    const saved = await saveExploreVideo(video, poster instanceof File ? poster : null, durationSec);
-    originalUrl = saved.posterUrl;
-    displayUrl = saved.posterUrl;
-    width = saved.width;
-    height = saved.height;
-    videoUrl = saved.videoUrl;
-    duration = saved.durationSec;
-  } else {
-    const saved = await saveListingImage(photo as File, true);
-    originalUrl = saved.originalUrl;
-    displayUrl = saved.url;
-    width = saved.width;
-    height = saved.height;
-  }
-
+  const saved = await saveListingImage(photo, true);
   const collection = await prisma.collection.create({
     data: {
       title,
@@ -66,21 +37,12 @@ export async function createPhotoCollection(formData: FormData) {
       cityId,
       status: ListingStatus.ACTIVE,
       images: {
-        create: hasVideo
-          ? {
-              originalUrl,
-              displayUrl,
-              width,
-              height,
-              videoUrl,
-              durationSec: duration,
-            }
-          : {
-              originalUrl,
-              displayUrl,
-              width,
-              height,
-            },
+        create: {
+          originalUrl: saved.originalUrl,
+          displayUrl: saved.url,
+          width: saved.width,
+          height: saved.height,
+        },
       },
     },
     include: { images: true },
@@ -101,7 +63,6 @@ export async function saveHotspotItem(input: {
   width: number;
   height: number;
   extra?: Record<string, string>;
-  atSeconds?: number | null;
   listingId?: string;
   produceProductType?: ProduceProductType;
   permit?: {
@@ -195,7 +156,6 @@ export async function saveHotspotItem(input: {
       defects: input.extra?.defects,
       additionalDetails: input.extra?.additionalDetails,
       pickupNotes: input.extra?.pickupNotes,
-      atSeconds: input.atSeconds ?? undefined,
     },
     create: {
       listingId: listing.id,
@@ -213,7 +173,6 @@ export async function saveHotspotItem(input: {
       defects: input.extra?.defects,
       additionalDetails: input.extra?.additionalDetails,
       pickupNotes: input.extra?.pickupNotes,
-      atSeconds: input.atSeconds ?? undefined,
     },
   });
 

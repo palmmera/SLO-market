@@ -94,7 +94,6 @@ export default async function BrowsePage({
       itemCount: c.listings.length,
       lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
       imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
-      exploreVideo: Boolean(c.images[0]?.videoUrl),
     }));
 
   return (

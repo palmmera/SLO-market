@@ -46,11 +46,7 @@ export default async function PhotoEditorPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-4">
       <h1 className="font-display text-3xl">{collection.title}</h1>
-      <p className="mb-4 text-sm text-muted">
-        {image.videoUrl
-          ? "Drag left or right to look around. Tap an item, adjust the box, and add a price."
-          : "Pinch or use zoom. Tap an item. Drag corners to fit the box."}
-      </p>
+      <p className="mb-4 text-sm text-muted">Pinch or use zoom. Tap an item. Drag corners to fit the box.</p>
       {!stripeReady && (
         <div className="mb-4 rounded-2xl bg-gold/20 p-4 text-sm">
           You can mark items on the photo now. When you save an item, you’ll finish connecting Stripe so buyers can pay
@@ -71,7 +67,6 @@ export default async function PhotoEditorPage({
         imageId={image.id}
         categoryId={categoryId}
         imageUrl={image.originalUrl}
-        videoUrl={image.videoUrl}
         initialFulfillment={collection.fulfillment}
         initialDeliveryFeeCents={collection.deliveryFeeCents}
         initialDeliveryRadiusMiles={collection.deliveryRadiusMiles}
@@ -84,7 +79,6 @@ export default async function PhotoEditorPage({
           description: h.listing.description,
           condition: h.listing.condition || "GOOD",
           status: h.listing.status,
-          atSeconds: h.atSeconds,
           box: { x: h.x, y: h.y, width: h.width, height: h.height },
         }))}
       />

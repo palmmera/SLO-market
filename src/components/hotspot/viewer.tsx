@@ -6,7 +6,6 @@ import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { startMessage } from "@/actions/listings";
 import { suggestedFirstMessage } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
-import { DragExploreVideo } from "@/components/hotspot/drag-explore-video";
 
 export type HotspotViewItem = {
   id: string;
@@ -21,12 +20,10 @@ export type HotspotViewItem = {
   width: number;
   height: number;
   markerLabel?: string | null;
-  atSeconds?: number | null;
 };
 
 const MAX_SCALE = 6;
 const MIN_SCALE = 1;
-const TAG_WINDOW = 2;
 
 function isUnavailable(status: string) {
   return status === "SOLD" || status === "RESERVED";
@@ -38,7 +35,6 @@ function tagLabel(item: HotspotViewItem) {
 
 export function InteractivePhotoViewer({
   imageUrl,
-  videoUrl,
   items,
   hideSold = false,
   initialItemSlug,
@@ -48,7 +44,6 @@ export function InteractivePhotoViewer({
   sellerName,
 }: {
   imageUrl: string;
-  videoUrl?: string | null;
   items: HotspotViewItem[];
   hideSold?: boolean;
   initialItemSlug?: string;
@@ -66,13 +61,6 @@ export function InteractivePhotoViewer({
   const [message, setMessage] = useState(() => suggestedFirstMessage(sellerName));
   const [pending, start] = useTransition();
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  const isVideo = Boolean(videoUrl);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [jumpTo, setJumpTo] = useState<number | undefined>(() => {
-    if (!initialItemSlug) return undefined;
-    const match = items.find((i) => i.slug === initialItemSlug);
-    return match?.atSeconds ?? undefined;
-  });
 
   const visible = useMemo(
     () => items.filter((i) => !(hideSold && isUnavailable(i.status))),
@@ -89,7 +77,6 @@ export function InteractivePhotoViewer({
 
   function selectItem(item: HotspotViewItem) {
     setSelected(item);
-    if (item.atSeconds != null) setJumpTo(item.atSeconds);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("item", item.slug);
@@ -122,64 +109,32 @@ export function InteractivePhotoViewer({
 
   const canBuy = showBuy && selected && selected.status === "ACTIVE" && selected.priceCents > 0;
 
-  const visibleTags = visible.filter((item) => {
-    if (!isVideo || item.atSeconds == null) return true;
-    if (selected?.id === item.id) return true;
-    return Math.abs(item.atSeconds - currentTime) <= TAG_WINDOW;
-  });
-
   const stage = (className: string) => (
     <div
-      className={`relative ${className} overflow-hidden ${isVideo ? "" : "cursor-grab touch-none"}`}
-      onWheel={
-        isVideo
-          ? undefined
-          : (e) => {
-              e.preventDefault();
-              setScale((s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s + (e.deltaY < 0 ? 0.15 : -0.15))));
-            }
-      }
-      onPointerDown={
-        isVideo
-          ? undefined
-          : (e) => {
-              dragging.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
-              (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-            }
-      }
-      onPointerMove={
-        isVideo
-          ? undefined
-          : (e) => {
-              if (!dragging.current) return;
-              setPan({
-                x: dragging.current.panX + (e.clientX - dragging.current.x),
-                y: dragging.current.panY + (e.clientY - dragging.current.y),
-              });
-            }
-      }
+      className={`relative ${className} cursor-grab touch-none overflow-hidden`}
+      onWheel={(e) => {
+        e.preventDefault();
+        setScale((s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s + (e.deltaY < 0 ? 0.15 : -0.15))));
+      }}
+      onPointerDown={(e) => {
+        dragging.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!dragging.current) return;
+        setPan({
+          x: dragging.current.panX + (e.clientX - dragging.current.x),
+          y: dragging.current.panY + (e.clientY - dragging.current.y),
+        });
+      }}
       onPointerUp={() => {
         dragging.current = null;
       }}
     >
-      <div
-        className="absolute inset-0 origin-center"
-        style={isVideo ? undefined : { transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}
-      >
-        {isVideo && videoUrl ? (
-          <DragExploreVideo
-            src={videoUrl}
-            poster={imageUrl}
-            jumpTo={jumpTo}
-            onTimeChange={(time) => setCurrentTime(time)}
-          />
-        ) : (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
-          </>
-        )}
-        {visibleTags.map((item) => {
+      <div className="absolute inset-0 origin-center" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
+        {visible.map((item) => {
           const isSelected = selected?.id === item.id;
           const sold = isUnavailable(item.status);
           return (
@@ -199,7 +154,7 @@ export function InteractivePhotoViewer({
             >
               {/* Invisible hit area = vendor's box; price / Sold tag sits near the top */}
               <span
-                className={`pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md transition-transform ${
+                className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold shadow-md transition-transform pointer-events-none ${
                   sold
                     ? `bg-clay text-white ${isSelected ? "scale-110 ring-2 ring-white" : ""}`
                     : isSelected
@@ -213,11 +168,6 @@ export function InteractivePhotoViewer({
           );
         })}
       </div>
-      {isVideo && (
-        <p className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[11px] font-medium text-white">
-          Drag left or right to look around
-        </p>
-      )}
     </div>
   );
 
@@ -309,14 +259,10 @@ export function InteractivePhotoViewer({
               </button>
             </form>
           )}
-          <p className="mt-4 text-xs text-muted">
-            {isVideo ? "Drag to look around, then tap a price tag to switch items." : "Tap an item in the photo (or its price tag) to switch."}
-          </p>
+          <p className="mt-4 text-xs text-muted">Tap an item in the photo (or its price tag) to switch.</p>
         </>
       ) : (
-        <p className="text-sm text-muted">
-          {isVideo ? "Drag to look around, then tap a price tag." : "Tap an item in the photo to see details."}
-        </p>
+        <p className="text-sm text-muted">Tap an item in the photo to see details.</p>
       )}
     </div>
   );
@@ -325,14 +271,13 @@ export function InteractivePhotoViewer({
     <>
       <div className="grid items-start gap-4 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="relative aspect-[4/3] w-full self-start overflow-hidden rounded-[28px] bg-ink">
-          {!expanded && stage("h-full w-full")}
+          {stage("h-full w-full")}
           <div className="absolute right-3 top-3 flex items-center gap-1.5">
-            {!isVideo && zoomControls}
+            {zoomControls}
             <button
               type="button"
               onPointerDown={stopControlDrag}
               onClick={() => {
-                setJumpTo(currentTime);
                 reset();
                 setExpanded(true);
               }}
@@ -359,17 +304,14 @@ export function InteractivePhotoViewer({
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
               <span className="hidden text-sm text-white/70 sm:block">
-                {isVideo
-                  ? "Drag left or right to look around · tap a price tag"
-                  : "Tap an item or price tag · scroll or use +/− to zoom · drag to pan"}
+                Tap an item or price tag · scroll or use +/− to zoom · drag to pan
               </span>
               <div className="ml-auto flex items-center gap-1.5">
-                {!isVideo && zoomControls}
+                {zoomControls}
                 <button
                   type="button"
                   onPointerDown={stopControlDrag}
                   onClick={() => {
-                    setJumpTo(currentTime);
                     setExpanded(false);
                     reset();
                   }}

@@ -23,7 +23,6 @@ export type CollectionCardData = {
   itemCount: number;
   lowestPriceCents: number | null;
   imageUrl: string | null;
-  exploreVideo?: boolean;
 };
 
 export function ListingCard({ listing }: { listing: ListingCardData }) {
@@ -94,13 +93,10 @@ export function CollectionCard({ collection }: { collection: CollectionCardData 
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted">No photo yet</div>
         )}
-        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+        <div className="absolute left-3 top-3">
           <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold text-ink">
             {collection.itemCount} item{collection.itemCount === 1 ? "" : "s"}
           </span>
-          {collection.exploreVideo && (
-            <span className="rounded-full bg-ink/80 px-2.5 py-1 text-[11px] font-semibold text-white">Drag to explore</span>
-          )}
         </div>
       </div>
       <div className="p-3.5">
@@ -109,9 +105,7 @@ export function CollectionCard({ collection }: { collection: CollectionCardData 
           <div className="shrink-0 text-sm font-bold text-ink">{priceLabel}</div>
         </div>
         <p className="mt-1 text-xs text-muted">{formatCityCounty(collection.city.name)}</p>
-        <p className="mt-1 text-[11px] text-ocean">
-          {collection.exploreVideo ? "Drag to explore · tap tags to buy" : "Tap items in the photo to buy"}
-        </p>
+        <p className="mt-1 text-[11px] text-ocean">Tap items in the photo to buy</p>
       </div>
     </Link>
   );
