@@ -385,6 +385,7 @@ model ListingHotspot {
   defects            String?
   additionalDetails  String?
   pickupNotes        String?
+  atSeconds          Float?
 }
 
 model Collection {
@@ -414,6 +415,8 @@ model CollectionImage {
   collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   originalUrl  String
   displayUrl   String?
+  videoUrl     String?
+  durationSec  Float?
   width        Int?
   height       Int?
   sortOrder    Int              @default(0)
