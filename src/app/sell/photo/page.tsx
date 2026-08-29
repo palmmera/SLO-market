@@ -13,9 +13,9 @@ export default async function SellPhotoPage() {
   ]);
   return (
     <div className="mx-auto max-w-xl px-4 py-6">
-      <h1 className="font-display text-4xl">Sell from a photo or video</h1>
+      <h1 className="font-display text-4xl">Sell from a photo</h1>
       <p className="mt-2 text-muted">
-        Upload a photo, or a short clip up to 15 seconds. Tap each item, adjust the box, add a price.
+        Take one photo of the table or room. Tap each item, adjust the box, and add a price.
       </p>
       <div className="mt-6">
         <PhotoSaleStart cities={cities} categories={categories} defaultCityId={user?.cityId || cities[0]?.id} />
