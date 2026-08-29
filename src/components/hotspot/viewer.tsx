@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { startMessage } from "@/actions/listings";
 import { suggestedFirstMessage } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
@@ -22,8 +22,14 @@ export type HotspotViewItem = {
   markerLabel?: string | null;
 };
 
+export type HotspotPhoto = {
+  imageUrl: string;
+  items: HotspotViewItem[];
+};
+
 const MAX_SCALE = 6;
 const MIN_SCALE = 1;
+const SWIPE_PX = 50;
 
 function isUnavailable(status: string) {
   return status === "SOLD" || status === "RESERVED";
@@ -33,9 +39,18 @@ function tagLabel(item: HotspotViewItem) {
   return isUnavailable(item.status) ? "Sold" : item.markerLabel || formatMoney(item.priceCents);
 }
 
+function firstVisible(list: HotspotViewItem[], hideSold: boolean, preferSlug?: string) {
+  if (preferSlug) {
+    const match = list.find((i) => i.slug === preferSlug);
+    if (match && !(hideSold && isUnavailable(match.status))) return match;
+  }
+  return list.find((i) => !(hideSold && isUnavailable(i.status))) ?? null;
+}
+
 export function InteractivePhotoViewer({
   imageUrl,
   items,
+  photos,
   hideSold = false,
   initialItemSlug,
   showBuy = true,
@@ -43,8 +58,9 @@ export function InteractivePhotoViewer({
   fulfillmentNote,
   sellerName,
 }: {
-  imageUrl: string;
-  items: HotspotViewItem[];
+  imageUrl?: string;
+  items?: HotspotViewItem[];
+  photos?: HotspotPhoto[];
   hideSold?: boolean;
   initialItemSlug?: string;
   showBuy?: boolean;
@@ -55,25 +71,50 @@ export function InteractivePhotoViewer({
   sellerName?: string | null;
 }) {
   const router = useRouter();
+  const gallery = useMemo<HotspotPhoto[]>(() => {
+    if (photos?.length) return photos;
+    if (imageUrl) return [{ imageUrl, items: items ?? [] }];
+    return [];
+  }, [photos, imageUrl, items]);
+
+  const [photoIndex, setPhotoIndex] = useState(() => {
+    if (!initialItemSlug) return 0;
+    const found = gallery.findIndex((p) => p.items.some((i) => i.slug === initialItemSlug));
+    return found >= 0 ? found : 0;
+  });
+  const current = gallery[photoIndex] ?? gallery[0];
+  const currentItems = current?.items ?? [];
+  const multi = gallery.length > 1;
+
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState(() => suggestedFirstMessage(sellerName));
   const [pending, start] = useTransition();
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
 
   const visible = useMemo(
-    () => items.filter((i) => !(hideSold && isUnavailable(i.status))),
-    [items, hideSold],
+    () => currentItems.filter((i) => !(hideSold && isUnavailable(i.status))),
+    [currentItems, hideSold],
   );
 
-  const [selected, setSelected] = useState<HotspotViewItem | null>(() => {
-    if (initialItemSlug) {
-      const match = items.find((i) => i.slug === initialItemSlug);
-      if (match && !(hideSold && isUnavailable(match.status))) return match;
-    }
-    return items.find((i) => !(hideSold && isUnavailable(i.status))) ?? null;
-  });
+  const [selected, setSelected] = useState<HotspotViewItem | null>(() =>
+    firstVisible(gallery[photoIndex]?.items ?? [], hideSold, initialItemSlug),
+  );
+
+  function reset() {
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+  }
+
+  function goTo(nextIndex: number) {
+    const wrapped = (nextIndex + gallery.length) % gallery.length;
+    if (wrapped === photoIndex || !gallery.length) return;
+    setPhotoIndex(wrapped);
+    reset();
+    setSelected(firstVisible(gallery[wrapped].items, hideSold));
+  }
 
   function selectItem(item: HotspotViewItem) {
     setSelected(item);
@@ -84,30 +125,83 @@ export function InteractivePhotoViewer({
     }
   }
 
-  function reset() {
-    setScale(1);
-    setPan({ x: 0, y: 0 });
-  }
-
   useEffect(() => {
     if (!expanded) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setExpanded(false);
+      if (e.key === "ArrowLeft") goTo(photoIndex - 1);
+      if (e.key === "ArrowRight") goTo(photoIndex + 1);
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKey);
     };
-  }, [expanded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, photoIndex, gallery.length]);
+
+  useEffect(() => {
+    if (expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "ArrowLeft") goTo(photoIndex - 1);
+      if (e.key === "ArrowRight") goTo(photoIndex + 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, photoIndex, gallery.length]);
 
   function stopControlDrag(e: React.PointerEvent) {
     e.stopPropagation();
   }
 
   const canBuy = showBuy && selected && selected.status === "ACTIVE" && selected.priceCents > 0;
+
+  const navArrows =
+    multi &&
+    (
+      <>
+        <button
+          type="button"
+          onPointerDown={stopControlDrag}
+          onClick={() => goTo(photoIndex - 1)}
+          className="absolute left-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink shadow"
+          aria-label="Previous photo"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onPointerDown={stopControlDrag}
+          onClick={() => goTo(photoIndex + 1)}
+          className="absolute right-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink shadow"
+          aria-label="Next photo"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </>
+    );
+
+  const dots =
+    multi &&
+    (
+      <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
+        {gallery.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onPointerDown={stopControlDrag}
+            onClick={() => goTo(i)}
+            className={`h-2.5 w-2.5 rounded-full ${i === photoIndex ? "bg-white" : "bg-white/40"}`}
+            aria-label={`Photo ${i + 1}`}
+          />
+        ))}
+      </div>
+    );
 
   const stage = (className: string) => (
     <div
@@ -117,7 +211,10 @@ export function InteractivePhotoViewer({
         setScale((s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s + (e.deltaY < 0 ? 0.15 : -0.15))));
       }}
       onPointerDown={(e) => {
-        dragging.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        swipe.current = { x: e.clientX, y: e.clientY };
+        if (scale > 1.05) {
+          dragging.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        }
         (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
@@ -127,13 +224,20 @@ export function InteractivePhotoViewer({
           y: dragging.current.panY + (e.clientY - dragging.current.y),
         });
       }}
-      onPointerUp={() => {
+      onPointerUp={(e) => {
+        const start = swipe.current;
         dragging.current = null;
+        swipe.current = null;
+        if (!multi || scale > 1.05 || !start) return;
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        if (Math.abs(dx) < SWIPE_PX || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
+        goTo(dx < 0 ? photoIndex + 1 : photoIndex - 1);
       }}
     >
       <div className="absolute inset-0 origin-center" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
+        <img src={current?.imageUrl || ""} alt="" className="h-full w-full object-contain" draggable={false} />
         {visible.map((item) => {
           const isSelected = selected?.id === item.id;
           const sold = isUnavailable(item.status);
@@ -168,6 +272,8 @@ export function InteractivePhotoViewer({
           );
         })}
       </div>
+      {navArrows}
+      {dots}
     </div>
   );
 
@@ -259,10 +365,16 @@ export function InteractivePhotoViewer({
               </button>
             </form>
           )}
-          <p className="mt-4 text-xs text-muted">Tap an item in the photo (or its price tag) to switch.</p>
+          <p className="mt-4 text-xs text-muted">
+            {multi
+              ? "Swipe or use the arrows for another photo. Tap an item to switch."
+              : "Tap an item in the photo (or its price tag) to switch."}
+          </p>
         </>
       ) : (
-        <p className="text-sm text-muted">Tap an item in the photo to see details.</p>
+        <p className="text-sm text-muted">
+          {multi ? "Swipe or use the arrows for another photo, or tap an item." : "Tap an item in the photo to see details."}
+        </p>
       )}
     </div>
   );
@@ -272,7 +384,7 @@ export function InteractivePhotoViewer({
       <div className="grid items-start gap-4 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="relative aspect-[4/3] w-full self-start overflow-hidden rounded-[28px] bg-ink">
           {stage("h-full w-full")}
-          <div className="absolute right-3 top-3 flex items-center gap-1.5">
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5">
             {zoomControls}
             <button
               type="button"
@@ -288,6 +400,11 @@ export function InteractivePhotoViewer({
               Expand
             </button>
           </div>
+          {multi && (
+            <div className="absolute left-3 top-3 z-20 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white">
+              {photoIndex + 1} / {gallery.length}
+            </div>
+          )}
         </div>
         <div className="lg:sticky lg:top-4 lg:self-start">{detailPanel}</div>
       </div>
@@ -304,7 +421,9 @@ export function InteractivePhotoViewer({
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
               <span className="hidden text-sm text-white/70 sm:block">
-                Tap an item or price tag · scroll or use +/− to zoom · drag to pan
+                {multi
+                  ? "Swipe or arrows for more photos · tap an item · +/− to zoom"
+                  : "Tap an item or price tag · scroll or use +/− to zoom · drag to pan"}
               </span>
               <div className="ml-auto flex items-center gap-1.5">
                 {zoomControls}

@@ -22,6 +22,7 @@ export default async function CollectionPage({
       city: true,
       seller: true,
       images: {
+        orderBy: { sortOrder: "asc" },
         include: {
           hotspots: { include: { listing: true } },
         },
@@ -29,11 +30,16 @@ export default async function CollectionPage({
     },
   });
   if (!collection || collection.status === "REMOVED") notFound();
-  const image = collection.images[0];
+  const itemImage = sp.item
+    ? collection.images.find((img) => img.hotspots.some((h) => h.listing.slug === sp.item))
+    : undefined;
+  const image = itemImage || collection.images[0];
   const isOwner = session?.user?.id === collection.sellerId;
   const editQs = new URLSearchParams();
   if (image?.id) editQs.set("image", image.id);
-  const firstCategory = image?.hotspots[0]?.listing.categoryId;
+  const firstCategory =
+    image?.hotspots[0]?.listing.categoryId ||
+    collection.images.flatMap((img) => img.hotspots)[0]?.listing.categoryId;
   if (firstCategory) editQs.set("category", firstCategory);
 
   const isProduceStand = collection.type === "PRODUCE_STAND";
@@ -53,8 +59,7 @@ export default async function CollectionPage({
         <div>
           <h1 className="font-display text-4xl">{collection.title}</h1>
           <p className="mt-1 text-sm text-muted">
-            Tap a price tag on the photo — details and price update here. Buy or message the seller about the selected
-            item.
+            Tap a price tag — details and price update here. If there are more photos, swipe or use the arrows.
           </p>
           <p className="mt-2 inline-block rounded-full bg-sand px-3 py-1 text-xs font-medium text-ink">{fulfillmentNote}</p>
         </div>
@@ -67,28 +72,30 @@ export default async function CollectionPage({
           </Link>
         )}
       </div>
-      {image && (
+      {collection.images.length > 0 && (
         <div className="mt-5">
           <InteractivePhotoViewer
-            imageUrl={image.originalUrl || image.displayUrl || ""}
             hideSold={collection.hideSold}
             initialItemSlug={sp.item}
             showMessage={!isOwner}
             sellerName={collection.seller.name}
             fulfillmentNote={fulfillmentNote}
-            items={image.hotspots.map((h) => ({
-              id: h.listing.id,
-              slug: h.listing.slug,
-              title: h.listing.title,
-              priceCents: h.listing.priceCents,
-              description: h.listing.description,
-              status: h.listing.status,
-              condition: h.listing.condition ? conditionLabel(h.listing.condition) : null,
-              x: h.x,
-              y: h.y,
-              width: h.width,
-              height: h.height,
-              markerLabel: h.markerLabel,
+            photos={collection.images.map((img) => ({
+              imageUrl: img.originalUrl || img.displayUrl || "",
+              items: img.hotspots.map((h) => ({
+                id: h.listing.id,
+                slug: h.listing.slug,
+                title: h.listing.title,
+                priceCents: h.listing.priceCents,
+                description: h.listing.description,
+                status: h.listing.status,
+                condition: h.listing.condition ? conditionLabel(h.listing.condition) : null,
+                x: h.x,
+                y: h.y,
+                width: h.width,
+                height: h.height,
+                markerLabel: h.markerLabel,
+              })),
             }))}
           />
         </div>

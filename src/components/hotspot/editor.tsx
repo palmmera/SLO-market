@@ -2,10 +2,11 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveHotspotItem, deleteHotspotItem, markHotspotSold, updateCollectionFulfillment } from "@/actions/hotspots";
+import { addCollectionImages, saveHotspotItem, deleteHotspotItem, markHotspotSold, updateCollectionFulfillment } from "@/actions/hotspots";
 import { connectStripeAccount } from "@/actions/orders";
-import { HOTSPOT_CONDITIONS } from "@/lib/constants";
+import { HOTSPOT_CONDITIONS, MAX_COLLECTION_PHOTOS } from "@/lib/constants";
 import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
+import { compressImage } from "@/lib/image-compress";
 import { formatMoney } from "@/lib/utils";
 import { FulfillmentMethod, ProduceProductType } from "@prisma/client";
 
@@ -25,15 +26,17 @@ type Item = {
 
 type Handle = "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
+type EditorImage = { id: string; imageUrl: string; items: Item[] };
+
 export function HotspotEditor({
   collectionId,
   collectionSlug,
-  imageId,
+  imageId: initialImageId,
   categoryId,
   imageUrl,
   initialItems,
+  images: imagesProp,
   mode = "garage",
-  returnPath,
   initialFulfillment = "PICKUP_ONLY",
   initialDeliveryFeeCents = 0,
   initialDeliveryRadiusMiles = null,
@@ -45,6 +48,7 @@ export function HotspotEditor({
   categoryId: string;
   imageUrl: string;
   initialItems: Item[];
+  images?: EditorImage[];
   mode?: "garage" | "produce";
   returnPath?: string;
   initialFulfillment?: "PICKUP_ONLY" | "LOCAL_DELIVERY";
@@ -54,9 +58,16 @@ export function HotspotEditor({
 }) {
   const router = useRouter();
   const frameRef = useRef<HTMLDivElement>(null);
+  const addPhotoRef = useRef<HTMLInputElement>(null);
+  const [gallery, setGallery] = useState<EditorImage[]>(
+    imagesProp?.length ? imagesProp : [{ id: initialImageId, imageUrl, items: initialItems }],
+  );
+  const [imageId, setImageId] = useState(initialImageId);
+  const current = gallery.find((g) => g.id === imageId) || gallery[0];
+  const imageUrlCurrent = current?.imageUrl || imageUrl;
+  const items = current?.items ?? [];
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [items, setItems] = useState<Item[]>(initialItems);
   const [active, setActive] = useState<Box | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
   const [showMore, setShowMore] = useState(false);
@@ -70,7 +81,53 @@ export function HotspotEditor({
   const [savingFulfillment, setSavingFulfillment] = useState(false);
   const [fulfillmentSaved, setFulfillmentSaved] = useState(false);
   const isProduce = mode === "produce";
-  const stripeReturnPath = returnPath || `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}`;
+  const editorBase = isProduce ? `/sell/food/photo/${collectionId}` : `/sell/photo/${collectionId}`;
+  const stripeReturnPath = `${editorBase}?image=${imageId}&category=${categoryId}`;
+  const photoIndex = Math.max(0, gallery.findIndex((g) => g.id === imageId));
+  const room = MAX_COLLECTION_PHOTOS - gallery.length;
+
+  function setItems(updater: Item[] | ((prev: Item[]) => Item[])) {
+    setGallery((prev) =>
+      prev.map((g) => {
+        if (g.id !== imageId) return g;
+        const next = typeof updater === "function" ? updater(g.items) : updater;
+        return { ...g, items: next };
+      }),
+    );
+  }
+
+  function switchImage(id: string) {
+    if (id === imageId) return;
+    setImageId(id);
+    setActive(null);
+    setEditing(null);
+    setShowMore(false);
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("image", id);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }
+
+  async function onAddPhotos(list: FileList | null) {
+    const incoming = Array.from(list || []).slice(0, Math.max(0, room));
+    if (!incoming.length) return;
+    const form = new FormData();
+    const processed = await Promise.all(incoming.map((f) => compressImage(f)));
+    processed.forEach((file) => form.append("photos", file));
+    start(async () => {
+      try {
+        const result = await addCollectionImages(collectionId, form);
+        setGallery((prev) => [...prev, ...result.images.map((img) => ({ id: img.id, imageUrl: img.imageUrl, items: [] }))]);
+        if (result.images[0]) switchImage(result.images[0].id);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Could not add photo.");
+      }
+    });
+    if (addPhotoRef.current) addPhotoRef.current.value = "";
+  }
 
   async function saveFulfillment() {
     setSavingFulfillment(true);
@@ -177,7 +234,46 @@ export function HotspotEditor({
 
   return (
     <div className="space-y-3">
-      <p className="rounded-2xl bg-ocean px-4 py-3 text-sm font-medium text-white">Tap an item in the photo to add it for sale.</p>
+      <p className="rounded-2xl bg-ocean px-4 py-3 text-sm font-medium text-white">
+        {gallery.length > 1
+          ? `Photo ${photoIndex + 1} of ${gallery.length} — tap items on this photo, then open the next.`
+          : "Tap an item in the photo to add it for sale."}
+      </p>
+
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {gallery.map((g, i) => (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => switchImage(g.id)}
+            className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-xl ${g.id === imageId ? "ring-2 ring-ocean" : "ring-1 ring-sand-dark"}`}
+            aria-label={`Photo ${i + 1}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={g.imageUrl} alt="" className="h-full w-full object-cover" />
+            {g.items.length > 0 && (
+              <span className="absolute bottom-0.5 right-0.5 rounded-full bg-ink/80 px-1.5 text-[10px] font-semibold text-white">
+                {g.items.length}
+              </span>
+            )}
+          </button>
+        ))}
+        {room > 0 && (
+          <label className="flex h-16 w-20 shrink-0 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-sand-dark bg-white text-center text-[11px] font-semibold text-muted">
+            + Add photo
+            <input
+              ref={addPhotoRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void onAddPhotos(e.target.files);
+              }}
+            />
+          </label>
+        )}
+      </div>
 
       <div className="space-y-3 rounded-3xl bg-white p-4 card-shadow">
         <div className="text-sm font-semibold">How buyers get these items</div>
@@ -283,7 +379,7 @@ export function HotspotEditor({
       >
         <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
+          <img src={imageUrlCurrent} alt="" className="h-full w-full object-contain" draggable={false} />
           {items.map((item) => (
             <button
               key={item.listingId}

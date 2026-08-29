@@ -3,10 +3,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { conditionLabel, formatCityCounty, formatDateLabel, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType } from "@/lib/utils";
+import { conditionLabel, formatCityCounty, formatDateLabel, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType, parseDepositNote } from "@/lib/utils";
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
+import { RentalDepositNote } from "@/components/rental-deposit-note";
 import { calculateFees, getPlatformSettings } from "@/lib/fees";
 import { ListingStatus } from "@prisma/client";
 import { getBookedRentalRanges, rentalAvailability } from "@/lib/rental-availability";
@@ -67,6 +68,7 @@ export default async function ListingPage({
       : listing.seller.reviewsReceived.reduce((sum, r) => sum + r.rating, 0) / listing.seller.reviewsReceived.length;
 
   const extra = (listing.extraDetails as Record<string, string> | null) || {};
+  const depositNote = listing.listingType === "RENTAL" ? parseDepositNote(listing.extraDetails) : "";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -166,7 +168,7 @@ export default async function ListingPage({
             {listing.listingType === "SERVICE"
               ? "Local service — message the provider to arrange details, scheduling, and payment."
               : housingRental
-                ? "Booked and paid per night through SLO Market. Arrange check-in, keys, and any deposit with the owner in Messages. Exact address is not shown."
+                ? "Booked and paid per night through SLO Market. Arrange check-in and keys with the owner in Messages. Exact address is not shown."
               : listing.listingType === "RENTAL" && listing.fulfillment === "PICKUP_ONLY"
                 ? "Pickup / return locally — arrange a public meetup after payment. Exact address is not shown."
                 : listing.fulfillment === "PICKUP_ONLY"
@@ -175,6 +177,7 @@ export default async function ListingPage({
                   ? `Free local delivery within ${listing.deliveryRadiusMiles ?? 10} miles`
                   : `Local delivery: ${formatMoney(listing.deliveryFeeCents)} within ${listing.deliveryRadiusMiles ?? 10} miles`}
           </p>
+          <RentalDepositNote note={depositNote} />
           {canBuy && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery && !dailyRental && (
             <p className="text-sm text-muted">
               Item {formatMoney(listing.priceCents)} + delivery {formatMoney(listing.deliveryFeeCents)} ={" "}

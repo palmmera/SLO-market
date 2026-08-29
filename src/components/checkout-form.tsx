@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createCheckoutSession } from "@/actions/orders";
 import { formatMoney, MAX_DAILY_RENTAL_DAYS, overlappingBookedRange, rentalDaysInclusive, type RentalDateRangeValue } from "@/lib/utils";
 import { RentalDateRange } from "@/components/rental-date-range";
+import { RentalDepositNote } from "@/components/rental-deposit-note";
 
 export function CheckoutForm({
   listingId,
@@ -20,6 +21,7 @@ export function CheckoutForm({
   initialStartDate = "",
   initialEndDate = "",
   bookedRanges = [],
+  depositNote = "",
 }: {
   listingId: string;
   title: string;
@@ -35,6 +37,7 @@ export function CheckoutForm({
   initialStartDate?: string;
   initialEndDate?: string;
   bookedRanges?: RentalDateRangeValue[];
+  depositNote?: string;
 }) {
   const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">("PICKUP_ONLY");
   const [error, setError] = useState("");
@@ -72,6 +75,7 @@ export function CheckoutForm({
           }}
         />
       )}
+      <RentalDepositNote note={depositNote} />
       {!housingRental && (
       <div>
         <p className="mb-2 text-sm font-medium">Fulfillment method</p>

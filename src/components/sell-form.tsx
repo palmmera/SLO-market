@@ -12,7 +12,7 @@ import Link from "next/link";
 import { RentalTypePicker } from "@/components/rental-type-picker";
 import { ServiceTypePicker } from "@/components/service-type-picker";
 import { ProduceProductType } from "@prisma/client";
-import { isHousingRentalSlug, isServiceSlug } from "@/lib/utils";
+import { isHousingRentalSlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX } from "@/lib/utils";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -410,20 +410,34 @@ export function SellForm({
           </label>
         )}
         {listingType === "RENTAL" && (
-          <label className="mt-4 block">
-            <span className="text-sm font-medium">
-              {isHousingRental ? "4. Price per night" : "4. Price per day"}
-            </span>
-            <input
-              name="price"
-              type="number"
-              min="1"
-              step="0.01"
-              required
-              placeholder={isHousingRental ? "e.g. 100 per night" : "e.g. 10 per day"}
-              className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
-            />
-          </label>
+          <>
+            <label className="mt-4 block">
+              <span className="text-sm font-medium">
+                {isHousingRental ? "4. Price per night" : "4. Price per day"}
+              </span>
+              <input
+                name="price"
+                type="number"
+                min="1"
+                step="0.01"
+                required
+                placeholder={isHousingRental ? "e.g. 100 per night" : "e.g. 10 per day"}
+                className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+              />
+            </label>
+            <label className="mt-4 block">
+              <span className="text-sm font-medium">Deposit note (optional)</span>
+              <input
+                name="depositNote"
+                maxLength={RENTAL_DEPOSIT_NOTE_MAX}
+                placeholder="e.g. $100 cash at pickup, returned when the item comes back in the same condition."
+                className="mt-2 w-full rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+              />
+              <span className="mt-1 block text-xs text-muted">
+                If you collect a deposit yourself, say so here. SLO Market does not collect, hold, or refund deposits.
+              </span>
+            </label>
+          </>
         )}
         {listingType === "SERVICE" && (
           <label className="mt-4 block">

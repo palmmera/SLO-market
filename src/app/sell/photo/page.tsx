@@ -15,7 +15,7 @@ export default async function SellPhotoPage() {
     <div className="mx-auto max-w-xl px-4 py-6">
       <h1 className="font-display text-4xl">Sell from a photo</h1>
       <p className="mt-2 text-muted">
-        Take one photo of the table or room. Tap each item, adjust the box, and add a price.
+        Take up to 4 photos of different corners or tables. Tap each item, adjust the box, and add a price.
       </p>
       <div className="mt-6">
         <PhotoSaleStart cities={cities} categories={categories} defaultCityId={user?.cityId || cities[0]?.id} />

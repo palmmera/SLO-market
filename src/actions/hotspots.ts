@@ -9,6 +9,15 @@ import { revalidatePath } from "next/cache";
 import { assertFoodSellerForProduce } from "@/actions/food-seller";
 import { resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
+import { MAX_COLLECTION_PHOTOS } from "@/lib/constants";
+
+function photosFromForm(formData: FormData): File[] {
+  const listed = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  if (listed.length) return listed;
+  const single = formData.get("photo");
+  if (single instanceof File && single.size) return [single];
+  return [];
+}
 
 async function currentUser() {
   const session = await getSession();
@@ -22,12 +31,12 @@ export async function createPhotoCollection(formData: FormData) {
   const cityId = String(formData.get("cityId") || "");
   const categoryId = String(formData.get("categoryId") || "");
   const type = (String(formData.get("type") || "GARAGE_SALE") as CollectionType);
-  const photo = formData.get("photo");
-  if (!(photo instanceof File) || !photo.size) throw new Error("Please upload a photo.");
+  const photos = photosFromForm(formData).slice(0, MAX_COLLECTION_PHOTOS);
+  if (!photos.length) throw new Error("Please upload at least one photo.");
   if (type === "PRODUCE_STAND") await assertFoodSellerForProduce(user.id);
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!city) throw new Error("Choose a city.");
-  const saved = await saveListingImage(photo, true);
+  const saved = await Promise.all(photos.map((photo) => saveListingImage(photo, true)));
   const collection = await prisma.collection.create({
     data: {
       title,
@@ -37,17 +46,58 @@ export async function createPhotoCollection(formData: FormData) {
       cityId,
       status: ListingStatus.ACTIVE,
       images: {
-        create: {
-          originalUrl: saved.originalUrl,
-          displayUrl: saved.url,
-          width: saved.width,
-          height: saved.height,
-        },
+        create: saved.map((image, sortOrder) => ({
+          originalUrl: image.originalUrl,
+          displayUrl: image.url,
+          width: image.width,
+          height: image.height,
+          sortOrder,
+        })),
       },
     },
-    include: { images: true },
+    include: { images: { orderBy: { sortOrder: "asc" } } },
   });
   return { collectionId: collection.id, imageId: collection.images[0].id, slug: collection.slug, categoryId };
+}
+
+export async function addCollectionImages(collectionId: string, formData: FormData) {
+  const user = await currentUser();
+  const collection = await prisma.collection.findFirst({
+    where: { id: collectionId, sellerId: user.id },
+    include: { images: { orderBy: { sortOrder: "asc" }, select: { id: true, sortOrder: true } } },
+  });
+  if (!collection) throw new Error("Collection not found.");
+  if (collection.type === "PRODUCE_STAND") await assertFoodSellerForProduce(user.id);
+
+  const room = MAX_COLLECTION_PHOTOS - collection.images.length;
+  if (room <= 0) throw new Error(`You can add up to ${MAX_COLLECTION_PHOTOS} photos.`);
+  const photos = photosFromForm(formData).slice(0, room);
+  if (!photos.length) throw new Error("Please choose a photo.");
+
+  const startOrder = (collection.images[collection.images.length - 1]?.sortOrder ?? -1) + 1;
+  const saved = await Promise.all(photos.map((photo) => saveListingImage(photo, true)));
+  const created = await prisma.$transaction(
+    saved.map((image, i) =>
+      prisma.collectionImage.create({
+        data: {
+          collectionId: collection.id,
+          originalUrl: image.originalUrl,
+          displayUrl: image.url,
+          width: image.width,
+          height: image.height,
+          sortOrder: startOrder + i,
+        },
+      }),
+    ),
+  );
+
+  revalidatePath(`/collection/${collection.slug}`);
+  return {
+    images: created.map((image) => ({
+      id: image.id,
+      imageUrl: image.originalUrl || image.displayUrl || "",
+    })),
+  };
 }
 
 export async function saveHotspotItem(input: {

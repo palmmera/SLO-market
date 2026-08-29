@@ -86,6 +86,23 @@ export function isDailyRentalListing(listingType?: string | null, _categorySlug?
   return listingType === "RENTAL";
 }
 
+/** Optional owner-collected deposit note. Never charged or held by SLO Market. */
+export const RENTAL_DEPOSIT_NOTE_MAX = 160;
+
+export function sanitizeDepositNote(raw: unknown) {
+  const text = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!text) return "";
+  return text.slice(0, RENTAL_DEPOSIT_NOTE_MAX);
+}
+
+export function parseDepositNote(extraDetails: unknown) {
+  if (!extraDetails || typeof extraDetails !== "object" || Array.isArray(extraDetails)) return "";
+  const note = (extraDetails as Record<string, unknown>).depositNote;
+  return typeof note === "string" ? sanitizeDepositNote(note) : "";
+}
+
 /** Inclusive calendar days. Jan 1–Jan 5 = 5 days. Same-day start and end = 1 day. */
 export function rentalDaysInclusive(startDate: string, endDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return 0;

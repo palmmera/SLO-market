@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Condition, FulfillmentMethod, ListingStatus, ListingType } from "@prisma/client";
+import { Condition, FulfillmentMethod, ListingStatus, ListingType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { uniqueListingSlug } from "@/lib/slug";
@@ -9,12 +9,30 @@ import { saveListingImage } from "@/lib/storage";
 import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 import { getPlatformSettings } from "@/lib/fees";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
-import { absoluteUrl } from "@/lib/utils";
+import { absoluteUrl, isHousingRentalSlug, isServiceSlug, sanitizeDepositNote } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
-import { isHousingRentalSlug, isServiceSlug } from "@/lib/utils";
+
+function extraDetailsWithDeposit(
+  base: Record<string, unknown> | null | undefined,
+  listingType: string,
+  formData: FormData,
+): Prisma.InputJsonValue | undefined {
+  const extra: Record<string, string> = {};
+  for (const [key, value] of Object.entries(base || {})) {
+    if (typeof value === "string") extra[key] = value;
+  }
+  if (listingType === "RENTAL") {
+    const note = sanitizeDepositNote(formData.get("depositNote"));
+    if (note) extra.depositNote = note;
+    else delete extra.depositNote;
+  } else {
+    delete extra.depositNote;
+  }
+  return Object.keys(extra).length ? extra : undefined;
+}
 
 /** A date LISTING_DURATION_DAYS in the future — a listing's fresh expiry window. */
 function newExpiry() {
@@ -101,6 +119,19 @@ async function createListingInner(formData: FormData) {
   const savedFulfillment = housingRental ? FulfillmentMethod.PICKUP_ONLY : fulfillment;
 
   const produceExtra = produceProductType ? buildProduceExtraDetails(formData) : null;
+  const enhancedExtra = enhanced
+    ? {
+        measurements: String(formData.get("measurements") || ""),
+        brand: String(formData.get("brand") || ""),
+        history: String(formData.get("history") || ""),
+        extra: String(formData.get("extra") || ""),
+      }
+    : null;
+  const extraDetails = extraDetailsWithDeposit(
+    (produceExtra as Record<string, unknown> | null) || enhancedExtra,
+    listingType,
+    formData,
+  );
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
   const slug = await uniqueListingSlug(title, city.name);
@@ -124,16 +155,7 @@ async function createListingInner(formData: FormData) {
       deliveryFeeCents: savedFulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
       freeDelivery: savedFulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
       enhancedDescription: false,
-      extraDetails: produceExtra
-        ? produceExtra
-        : enhanced
-          ? {
-              measurements: String(formData.get("measurements") || ""),
-              brand: String(formData.get("brand") || ""),
-              history: String(formData.get("history") || ""),
-              extra: String(formData.get("extra") || ""),
-            }
-          : undefined,
+      extraDetails: extraDetails ?? undefined,
       seoTitle,
       seoDescription,
       publishedAt: stripeReady ? new Date() : null,
@@ -283,6 +305,11 @@ export async function updateListing(listingId: string, formData: FormData) {
   const priceChanged = priceCents !== existing.priceCents;
   const seoTitle = `${title} in ${city.name} | SLO Market`;
   const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
+  const existingExtra =
+    existing.extraDetails && typeof existing.extraDetails === "object" && !Array.isArray(existing.extraDetails)
+      ? (existing.extraDetails as Record<string, unknown>)
+      : {};
+  const extraDetails = extraDetailsWithDeposit(existingExtra, listingType, formData);
 
   const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   const stripeReady =
@@ -305,6 +332,7 @@ export async function updateListing(listingId: string, formData: FormData) {
       deliveryRadiusMiles: savedFulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
       deliveryFeeCents: savedFulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
       freeDelivery: savedFulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
+      extraDetails: extraDetails ?? Prisma.DbNull,
       seoTitle,
       seoDescription,
       ...(shouldPublishDraft

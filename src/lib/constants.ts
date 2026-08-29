@@ -24,6 +24,9 @@ export function suggestedFirstMessage(sellerName?: string | null) {
 /** How long an active listing stays live before it expires and needs renewal. */
 export const LISTING_DURATION_DAYS = 30;
 
+/** Garage / produce photo sales: one tagged photo per corner, buyers swipe between them. */
+export const MAX_COLLECTION_PHOTOS = 4;
+
 export const DELIVERY_RADIUS_OPTIONS = [
   { label: "5 miles", value: 5 },
   { label: "10 miles", value: 10 },

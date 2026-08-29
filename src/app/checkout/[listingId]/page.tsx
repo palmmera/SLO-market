@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CheckoutForm } from "@/components/checkout-form";
 import { ListingStatus } from "@prisma/client";
-import { isDailyRentalListing, isHousingRentalSlug } from "@/lib/utils";
+import { isDailyRentalListing, isHousingRentalSlug, parseDepositNote } from "@/lib/utils";
 import { getBookedRentalRanges } from "@/lib/rental-availability";
 
 export default async function CheckoutPage({
@@ -42,6 +42,7 @@ export default async function CheckoutPage({
         initialStartDate={sp.from || ""}
         initialEndDate={sp.to || ""}
         bookedRanges={bookedRanges}
+        depositNote={dailyRental ? parseDepositNote(listing.extraDetails) : ""}
       />
       <p className="mt-4 text-xs text-muted">Card numbers never touch SLO Market servers.</p>
     </div>

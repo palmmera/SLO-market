@@ -26,6 +26,7 @@ export default async function FoodPhotoEditorPage({
       where: { id, sellerId: session.user.id, type: "PRODUCE_STAND" },
       include: {
         images: {
+          orderBy: { sortOrder: "asc" },
           include: {
             hotspots: { include: { listing: true } },
           },
@@ -93,6 +94,26 @@ export default async function FoodPhotoEditorPage({
               ? String((h.listing.extraDetails as { produceProductType?: string }).produceProductType)
               : "FRESH_PRODUCE",
           box: { x: h.x, y: h.y, width: h.width, height: h.height },
+        }))}
+        images={collection.images.map((img) => ({
+          id: img.id,
+          imageUrl: img.originalUrl,
+          items: img.hotspots.map((h) => ({
+            listingId: h.listing.id,
+            slug: h.listing.slug,
+            title: h.listing.title,
+            priceCents: h.listing.priceCents,
+            description: h.listing.description,
+            condition: h.listing.condition || "GOOD",
+            status: h.listing.status,
+            produceProductType:
+              typeof h.listing.extraDetails === "object" &&
+              h.listing.extraDetails &&
+              "produceProductType" in (h.listing.extraDetails as object)
+                ? String((h.listing.extraDetails as { produceProductType?: string }).produceProductType)
+                : "FRESH_PRODUCE",
+            box: { x: h.x, y: h.y, width: h.width, height: h.height },
+          })),
         }))}
       />
     </div>

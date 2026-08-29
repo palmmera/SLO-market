@@ -6,6 +6,7 @@ import { EditListingForm } from "@/components/edit-listing-form";
 import { ListingStatus } from "@prisma/client";
 import { refreshStripeStatus } from "@/actions/orders";
 import { revalidatePath } from "next/cache";
+import { parseDepositNote } from "@/lib/utils";
 
 export default async function EditListingPage({
   params,
@@ -114,6 +115,7 @@ export default async function EditListingPage({
             deliveryFeeCents: listing.deliveryFeeCents,
             freeDelivery: listing.freeDelivery,
             categoryParentId: listing.category.parentId,
+            depositNote: parseDepositNote(listing.extraDetails),
             images: listing.images.map((img) => ({
               id: img.id,
               url: img.url,

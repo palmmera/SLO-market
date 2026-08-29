@@ -25,7 +25,7 @@ export default async function SellFoodPhotoPage() {
       </Link>
       <h1 className="mt-3 font-display text-4xl">Produce stand photo</h1>
       <p className="mt-2 text-muted">
-        Photograph your stand or table. Tap each item, set a price, and buyers pick from the picture — just like a garage sale photo.
+        Photograph your stand — up to 4 photos. Tap each item, set a price, and buyers pick from the picture.
       </p>
       <div className="mt-6">
         <PhotoSaleStart

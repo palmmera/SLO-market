@@ -26,6 +26,7 @@ export default async function PhotoEditorPage({
       where: { id, sellerId: session.user.id },
       include: {
         images: {
+          orderBy: { sortOrder: "asc" },
           include: {
             hotspots: { include: { listing: true } },
           },
@@ -46,7 +47,9 @@ export default async function PhotoEditorPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-4">
       <h1 className="font-display text-3xl">{collection.title}</h1>
-      <p className="mb-4 text-sm text-muted">Pinch or use zoom. Tap an item. Drag corners to fit the box.</p>
+      <p className="mb-4 text-sm text-muted">
+        Pinch or use zoom. Tap an item. Drag corners to fit the box. Use the thumbnails to switch photos.
+      </p>
       {!stripeReady && (
         <div className="mb-4 rounded-2xl bg-gold/20 p-4 text-sm">
           You can mark items on the photo now. When you save an item, you’ll finish connecting Stripe so buyers can pay
@@ -80,6 +83,20 @@ export default async function PhotoEditorPage({
           condition: h.listing.condition || "GOOD",
           status: h.listing.status,
           box: { x: h.x, y: h.y, width: h.width, height: h.height },
+        }))}
+        images={collection.images.map((img) => ({
+          id: img.id,
+          imageUrl: img.originalUrl,
+          items: img.hotspots.map((h) => ({
+            listingId: h.listing.id,
+            slug: h.listing.slug,
+            title: h.listing.title,
+            priceCents: h.listing.priceCents,
+            description: h.listing.description,
+            condition: h.listing.condition || "GOOD",
+            status: h.listing.status,
+            box: { x: h.x, y: h.y, width: h.width, height: h.height },
+          })),
         }))}
       />
     </div>
