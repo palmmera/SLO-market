@@ -5,59 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPhotoCollection } from "@/actions/hotspots";
 import { EXPLORE_VIDEO_MAX_SECONDS } from "@/lib/constants";
+import { prepareExploreVideo } from "@/lib/explore-video-client";
 
 type Variant = "garage" | "produce";
 type MediaMode = "photo" | "video";
-
-const VIDEO_MAX_BYTES = 40 * 1024 * 1024;
-
-async function captureMiddlePoster(file: File) {
-  const url = URL.createObjectURL(file);
-  const video = document.createElement("video");
-  video.muted = true;
-  video.playsInline = true;
-  video.preload = "auto";
-  video.src = url;
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("Could not read that video."));
-    });
-    if (!Number.isFinite(video.duration) || video.duration <= 0) {
-      throw new Error("Could not read that video.");
-    }
-    if (video.duration > EXPLORE_VIDEO_MAX_SECONDS + 0.05) {
-      throw new Error(`Keep the clip to ${EXPLORE_VIDEO_MAX_SECONDS} seconds or less.`);
-    }
-    if (!video.videoWidth) {
-      await new Promise<void>((resolve, reject) => {
-        video.onloadeddata = () => resolve();
-        video.onerror = () => reject(new Error("Could not read that video."));
-      });
-    }
-    await new Promise<void>((resolve, reject) => {
-      video.onseeked = () => resolve();
-      video.onerror = () => reject(new Error("Could not read that video."));
-      video.currentTime = video.duration / 2;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Could not capture a still from the video.");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.82));
-    if (!blob) throw new Error("Could not capture a still from the video.");
-    return {
-      duration: video.duration,
-      poster: new File([blob], "poster.jpg", { type: "image/jpeg" }),
-    };
-  } finally {
-    URL.revokeObjectURL(url);
-    video.src = "";
-  }
-}
 
 export function PhotoSaleStart({
   cities,
@@ -79,6 +30,7 @@ export function PhotoSaleStart({
   const [mediaMode, setMediaMode] = useState<MediaMode>("photo");
   const [preparing, setPreparing] = useState(false);
   const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [preparedVideo, setPreparedVideo] = useState<File | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const isProduce = variant === "produce";
   const parents = categories?.filter((c) => !c.parentId) ?? [];
@@ -87,6 +39,7 @@ export function PhotoSaleStart({
   function resetMedia() {
     setFileName("");
     setPosterFile(null);
+    setPreparedVideo(null);
     setDuration(null);
     setError("");
   }
@@ -102,6 +55,11 @@ export function PhotoSaleStart({
           form.set("type", "PRODUCE_STAND");
         }
         if (useVideo) {
+          if (!preparedVideo) {
+            setError("Please choose a short video first.");
+            return;
+          }
+          form.set("video", preparedVideo);
           if (posterFile) form.set("poster", posterFile);
           if (duration != null) form.set("duration", String(duration));
           form.delete("photo");
@@ -125,7 +83,7 @@ export function PhotoSaleStart({
         {isProduce
           ? "Photograph your stand or table. Tap each item, adjust the box, and add a price."
           : useVideo
-            ? `Upload a short clip (up to ${EXPLORE_VIDEO_MAX_SECONDS} seconds). Buyers drag left and right to look around — no play button.`
+            ? `Upload a short clip (up to ${EXPLORE_VIDEO_MAX_SECONDS} seconds). iPhone videos are fine — large 4K files get shrunk automatically. Buyers drag left and right to look around — no play button.`
             : "Take a photo or choose from your library. Then tap each item, adjust the box, and add a price."}
       </p>
 
@@ -165,39 +123,35 @@ export function PhotoSaleStart({
           </div>
           <div className="mt-1 text-xs text-muted transition-colors group-hover:text-ocean">
             {useVideo
-              ? `Phone MP4, up to ${EXPLORE_VIDEO_MAX_SECONDS} seconds`
+              ? `From your phone, up to ${EXPLORE_VIDEO_MAX_SECONDS} seconds`
               : "Take a photo or choose from library"}
           </div>
         </div>
         {useVideo ? (
           <input
-            name="video"
             type="file"
             accept="video/mp4,video/quicktime,video/webm,.mp4,.m4v,.mov,.webm"
             required
             className="hidden"
             onChange={async (e) => {
-              const file = e.target.files?.[0];
+              const input = e.currentTarget;
+              const file = input.files?.[0];
               setFileName(file ? file.name : "");
               setPosterFile(null);
+              setPreparedVideo(null);
               setDuration(null);
               setError("");
               if (!file) return;
-              if (file.size > VIDEO_MAX_BYTES) {
-                setError("Videos must be 40MB or smaller.");
-                setFileName("");
-                e.target.value = "";
-                return;
-              }
               setPreparing(true);
               try {
-                const captured = await captureMiddlePoster(file);
+                const captured = await prepareExploreVideo(file);
+                setPreparedVideo(captured.video);
                 setPosterFile(captured.poster);
                 setDuration(captured.duration);
               } catch (err) {
                 setError(err instanceof Error ? err.message : "Could not read that video.");
                 setFileName("");
-                e.target.value = "";
+                input.value = "";
               } finally {
                 setPreparing(false);
               }
@@ -261,8 +215,17 @@ export function PhotoSaleStart({
         >
           Cancel
         </Link>
-        <button disabled={pending || preparing} className="rounded-2xl bg-clay py-3 font-semibold text-white">
-          {preparing ? "Reading video..." : pending ? "Uploading..." : useVideo ? "Open video editor" : "Open photo editor"}
+        <button
+          disabled={pending || preparing || (useVideo && !preparedVideo)}
+          className="rounded-2xl bg-clay py-3 font-semibold text-white"
+        >
+          {preparing
+            ? "Preparing video..."
+            : pending
+              ? "Uploading..."
+              : useVideo
+                ? "Open video editor"
+                : "Open photo editor"}
         </button>
       </div>
     </form>

@@ -3,7 +3,7 @@ import path from "path";
 import os from "os";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
-import { EXPLORE_VIDEO_MAX_SECONDS } from "@/lib/constants";
+import { EXPLORE_VIDEO_MAX_BYTES, EXPLORE_VIDEO_MAX_SECONDS } from "@/lib/constants";
 
 if (!process.env.UPLOAD_DIR || process.env.UPLOAD_DIR.startsWith("/data")) {
   process.env.UPLOAD_DIR = "uploads";
@@ -132,16 +132,24 @@ export async function saveDocument(file: File) {
   return `/uploads/documents/${fileName}`;
 }
 
-const VIDEO_ALLOWED = new Set(["video/mp4", "video/quicktime", "video/webm"]);
-const VIDEO_MAX_BYTES = 40 * 1024 * 1024;
+const VIDEO_ALLOWED = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-m4v",
+  "video/hevc",
+  "video/h264",
+]);
 
 export async function saveExploreVideo(video: File, poster?: File | null, durationSec?: number) {
   const type = video.type.toLowerCase();
   const name = video.name.toLowerCase();
   if (!VIDEO_ALLOWED.has(type) && !name.match(/\.(mp4|m4v|mov|webm)$/)) {
-    throw new Error("Please upload an MP4 video from your phone.");
+    throw new Error("Please upload an MP4 or MOV video from your phone.");
   }
-  if (video.size > VIDEO_MAX_BYTES) throw new Error("Videos must be 40MB or smaller.");
+  if (video.size > EXPLORE_VIDEO_MAX_BYTES) {
+    throw new Error("That clip is still too large after transfer. Try a 15-second clip, or record in 1080p.");
+  }
   if (durationSec != null && durationSec > EXPLORE_VIDEO_MAX_SECONDS + 0.2) {
     throw new Error(`Keep the clip to ${EXPLORE_VIDEO_MAX_SECONDS} seconds or less.`);
   }

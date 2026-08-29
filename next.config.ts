@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "sharp"],
     experimental: {
     serverActions: {
-      bodySizeLimit: "50mb",
+      bodySizeLimit: "200mb",
     },
   },
   eslint: {
