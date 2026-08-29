@@ -8,6 +8,7 @@ import { HOTSPOT_CONDITIONS } from "@/lib/constants";
 import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
 import { formatMoney } from "@/lib/utils";
 import { FulfillmentMethod, ProduceProductType } from "@prisma/client";
+import { DragExploreVideo } from "@/components/hotspot/drag-explore-video";
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -20,6 +21,7 @@ type Item = {
   condition: string;
   status: string;
   produceProductType?: string;
+  atSeconds?: number | null;
   box: Box;
 };
 
@@ -31,6 +33,7 @@ export function HotspotEditor({
   imageId,
   categoryId,
   imageUrl,
+  videoUrl,
   initialItems,
   mode = "garage",
   returnPath,
@@ -44,6 +47,7 @@ export function HotspotEditor({
   imageId: string;
   categoryId: string;
   imageUrl: string;
+  videoUrl?: string | null;
   initialItems: Item[];
   mode?: "garage" | "produce";
   returnPath?: string;
@@ -69,8 +73,13 @@ export function HotspotEditor({
   const [hideSold, setHideSold] = useState(initialHideSold);
   const [savingFulfillment, setSavingFulfillment] = useState(false);
   const [fulfillmentSaved, setFulfillmentSaved] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [jumpTo, setJumpTo] = useState<number | undefined>(undefined);
+  const [draftAt, setDraftAt] = useState<number | null>(null);
   const isProduce = mode === "produce";
+  const isVideo = Boolean(videoUrl);
   const stripeReturnPath = returnPath || `/sell/photo/${collectionId}?image=${imageId}&category=${categoryId}`;
+  const TAG_WINDOW = 2;
 
   async function saveFulfillment() {
     setSavingFulfillment(true);
@@ -91,11 +100,12 @@ export function HotspotEditor({
     }
   }
 
-  function openDraft(box: Box, title: string) {
+  function openDraft(box: Box, title: string, atSeconds?: number | null) {
     setActive(box);
     setEditing(null);
     setShowMore(false);
     setDraftTitle(title);
+    setDraftAt(atSeconds ?? (isVideo ? currentTime : null));
     setDraftKey((k) => k + 1);
   }
   const gesture = useRef<{
@@ -177,7 +187,11 @@ export function HotspotEditor({
 
   return (
     <div className="space-y-3">
-      <p className="rounded-2xl bg-ocean px-4 py-3 text-sm font-medium text-white">Tap an item in the photo to add it for sale.</p>
+      <p className="rounded-2xl bg-ocean px-4 py-3 text-sm font-medium text-white">
+        {isVideo
+          ? "Drag left or right to look around. Tap an item to tag it, then add a price."
+          : "Tap an item in the photo to add it for sale."}
+      </p>
 
       <div className="space-y-3 rounded-3xl bg-white p-4 card-shadow">
         <div className="text-sm font-semibold">How buyers get these items</div>
@@ -243,6 +257,7 @@ export function HotspotEditor({
         </div>
       </div>
 
+      {!isVideo && (
       <div className="flex gap-2">
         <button type="button" onClick={() => setScale((s) => Math.min(6, s + 0.25))} className="rounded-full bg-white px-3 py-2 text-sm card-shadow">
           Zoom in
@@ -261,30 +276,60 @@ export function HotspotEditor({
           Reset
         </button>
       </div>
+      )}
       <div
         ref={frameRef}
-        className="relative aspect-[4/3] overflow-hidden rounded-[24px] bg-ink touch-none"
-        onWheel={(e) => {
-          e.preventDefault();
-          setScale((s) => Math.min(6, Math.max(1, s + (e.deltaY < 0 ? 0.12 : -0.12))));
-        }}
-        onPointerDown={(e) => {
-          if ((e.target as HTMLElement).dataset.handle) return;
-          if (e.shiftKey || scale > 1.05) {
-            gesture.current = { type: "pan", startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
-            return;
-          }
-          addAt(e);
-        }}
+        className={`relative aspect-[4/3] overflow-hidden rounded-[24px] bg-ink ${isVideo ? "" : "touch-none"}`}
+        onWheel={
+          isVideo
+            ? undefined
+            : (e) => {
+                e.preventDefault();
+                setScale((s) => Math.min(6, Math.max(1, s + (e.deltaY < 0 ? 0.12 : -0.12))));
+              }
+        }
+        onPointerDown={
+          isVideo
+            ? undefined
+            : (e) => {
+                if ((e.target as HTMLElement).dataset.handle) return;
+                if (e.shiftKey || scale > 1.05) {
+                  gesture.current = { type: "pan", startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
+                  return;
+                }
+                addAt(e);
+              }
+        }
         onPointerMove={onMove}
         onPointerUp={() => {
           gesture.current = null;
         }}
       >
-        <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
-          {items.map((item) => (
+        <div
+          className="absolute inset-0 origin-top-left"
+          style={isVideo ? undefined : { transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}
+        >
+          {isVideo && videoUrl ? (
+            <DragExploreVideo
+              src={videoUrl}
+              poster={imageUrl}
+              jumpTo={jumpTo}
+              onTimeChange={(time) => setCurrentTime(time)}
+              onTap={addAt}
+            />
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageUrl} alt="" className="h-full w-full object-contain" draggable={false} />
+            </>
+          )}
+          {items
+            .filter((item) => {
+              if (!isVideo || item.atSeconds == null) return true;
+              if (editing?.listingId === item.listingId) return true;
+              return Math.abs(item.atSeconds - currentTime) <= TAG_WINDOW;
+            })
+            .map((item) => (
             <button
               key={item.listingId}
               type="button"
@@ -293,6 +338,8 @@ export function HotspotEditor({
                 setEditing(item);
                 setActive(item.box);
                 setShowMore(false);
+                setDraftAt(item.atSeconds ?? null);
+                if (item.atSeconds != null) setJumpTo(item.atSeconds);
               }}
               className="absolute"
               style={{
@@ -370,6 +417,7 @@ export function HotspotEditor({
                 width: active.width,
                 height: active.height,
                 extra,
+                atSeconds: isVideo ? (editing?.atSeconds ?? draftAt) : null,
                 listingId: editing?.listingId,
                 produceProductType: isProduce ? produceProductType : undefined,
                 permit: needsPermit
@@ -406,6 +454,7 @@ export function HotspotEditor({
                 description: String(form.get("description") || ""),
                 condition: String(form.get("condition") || "GOOD"),
                 status: "ACTIVE",
+                atSeconds: isVideo ? (editing?.atSeconds ?? draftAt) : null,
                 box: active,
               };
               setItems((prev) => {

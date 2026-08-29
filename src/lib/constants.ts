@@ -21,6 +21,9 @@ export function suggestedFirstMessage(sellerName?: string | null) {
   return first ? `Hi ${first}...` : "Hi...";
 }
 
+/** Max length for garage-sale drag-to-explore clips. */
+export const EXPLORE_VIDEO_MAX_SECONDS = 20;
+
 /** How long an active listing stays live before it expires and needs renewal. */
 export const LISTING_DURATION_DAYS = 30;
 

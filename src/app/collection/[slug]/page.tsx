@@ -53,8 +53,9 @@ export default async function CollectionPage({
         <div>
           <h1 className="font-display text-4xl">{collection.title}</h1>
           <p className="mt-1 text-sm text-muted">
-            Tap a price tag on the photo — details and price update here. Buy or message the seller about the selected
-            item.
+            {image?.videoUrl
+              ? "Drag left or right to look around. Tap a price tag — details and price update here. Buy or message the seller about the selected item."
+              : "Tap a price tag on the photo — details and price update here. Buy or message the seller about the selected item."}
           </p>
           <p className="mt-2 inline-block rounded-full bg-sand px-3 py-1 text-xs font-medium text-ink">{fulfillmentNote}</p>
         </div>
@@ -71,6 +72,7 @@ export default async function CollectionPage({
         <div className="mt-5">
           <InteractivePhotoViewer
             imageUrl={image.originalUrl || image.displayUrl || ""}
+            videoUrl={image.videoUrl}
             hideSold={collection.hideSold}
             initialItemSlug={sp.item}
             showMessage={!isOwner}
@@ -89,6 +91,7 @@ export default async function CollectionPage({
               width: h.width,
               height: h.height,
               markerLabel: h.markerLabel,
+              atSeconds: h.atSeconds,
             }))}
           />
         </div>

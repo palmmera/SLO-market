@@ -3,6 +3,7 @@ import path from "path";
 import os from "os";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
+import { EXPLORE_VIDEO_MAX_SECONDS } from "@/lib/constants";
 
 if (!process.env.UPLOAD_DIR || process.env.UPLOAD_DIR.startsWith("/data")) {
   process.env.UPLOAD_DIR = "uploads";
@@ -129,4 +130,51 @@ export async function saveDocument(file: File) {
   const fileName = `${id}.${ext}`;
   await writeFile(path.join(dir, fileName), buffer);
   return `/uploads/documents/${fileName}`;
+}
+
+const VIDEO_ALLOWED = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+const VIDEO_MAX_BYTES = 40 * 1024 * 1024;
+
+export async function saveExploreVideo(video: File, poster?: File | null, durationSec?: number) {
+  const type = video.type.toLowerCase();
+  const name = video.name.toLowerCase();
+  if (!VIDEO_ALLOWED.has(type) && !name.match(/\.(mp4|m4v|mov|webm)$/)) {
+    throw new Error("Please upload an MP4 video from your phone.");
+  }
+  if (video.size > VIDEO_MAX_BYTES) throw new Error("Videos must be 40MB or smaller.");
+  if (durationSec != null && durationSec > EXPLORE_VIDEO_MAX_SECONDS + 0.2) {
+    throw new Error(`Keep the clip to ${EXPLORE_VIDEO_MAX_SECONDS} seconds or less.`);
+  }
+
+  const id = nanoid(12);
+  const dir = await ensureDir(path.join(getUploadRoot(), "listings"));
+  const ext = name.endsWith(".webm") ? "webm" : name.endsWith(".mov") ? "mov" : "mp4";
+  const videoName = `${id}.${ext}`;
+  await writeFile(path.join(dir, videoName), Buffer.from(await video.arrayBuffer()));
+
+  let posterUrl = `/uploads/listings/${videoName}`;
+  let width: number | null = null;
+  let height: number | null = null;
+  if (poster && poster.size) {
+    const posterBuf = Buffer.from(await poster.arrayBuffer());
+    const display = await sharp(posterBuf, { failOn: "none" })
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer();
+    const meta = await sharp(display).metadata();
+    const posterName = `${id}-poster.jpg`;
+    await writeFile(path.join(dir, posterName), display);
+    posterUrl = `/uploads/listings/${posterName}`;
+    width = meta.width ?? null;
+    height = meta.height ?? null;
+  }
+
+  return {
+    videoUrl: `/uploads/listings/${videoName}`,
+    posterUrl,
+    width,
+    height,
+    durationSec: durationSec ?? null,
+  };
 }
