@@ -156,7 +156,7 @@ export function Gallery({ images, title }: { images: { url: string; alt: string 
       <div className="overflow-hidden rounded-[28px] bg-sand-dark">
         {current ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={current.url} alt={current.alt || title} className="aspect-[4/3] w-full object-cover" />
+          <img src={current.url} alt={current.alt || title} className="aspect-[4/3] w-full object-contain" />
         ) : (
           <div className="flex aspect-[4/3] items-center justify-center text-muted">No photos</div>
         )}
