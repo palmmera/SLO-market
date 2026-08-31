@@ -40,7 +40,6 @@ export function HotspotEditor({
   initialFulfillment = "PICKUP_ONLY",
   initialDeliveryFeeCents = 0,
   initialDeliveryRadiusMiles = null,
-  initialHideSold = false,
 }: {
   collectionId: string;
   collectionSlug: string;
@@ -54,7 +53,6 @@ export function HotspotEditor({
   initialFulfillment?: "PICKUP_ONLY" | "LOCAL_DELIVERY";
   initialDeliveryFeeCents?: number;
   initialDeliveryRadiusMiles?: number | null;
-  initialHideSold?: boolean;
 }) {
   const router = useRouter();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -77,7 +75,6 @@ export function HotspotEditor({
   const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">(initialFulfillment);
   const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFeeCents ? String(initialDeliveryFeeCents / 100) : "");
   const [deliveryRadius, setDeliveryRadius] = useState(initialDeliveryRadiusMiles ? String(initialDeliveryRadiusMiles) : "");
-  const [hideSold, setHideSold] = useState(initialHideSold);
   const [savingFulfillment, setSavingFulfillment] = useState(false);
   const [fulfillmentSaved, setFulfillmentSaved] = useState(false);
   const isProduce = mode === "produce";
@@ -136,7 +133,6 @@ export function HotspotEditor({
       await updateCollectionFulfillment(
         collectionId,
         fulfillment as FulfillmentMethod,
-        hideSold,
         fulfillment === "LOCAL_DELIVERY" ? Math.round(Number(deliveryFee || 0) * 100) : 0,
         fulfillment === "LOCAL_DELIVERY" && deliveryRadius ? Math.round(Number(deliveryRadius)) : null,
       );
@@ -322,10 +318,6 @@ export function HotspotEditor({
             </label>
           </div>
         )}
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)} />
-          Hide sold items from buyers
-        </label>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -333,7 +325,7 @@ export function HotspotEditor({
             disabled={savingFulfillment}
             className="rounded-2xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {savingFulfillment ? "Saving..." : "Save pickup / delivery"}
+            {savingFulfillment ? "Saving..." : "Save"}
           </button>
           {fulfillmentSaved && <span className="text-sm text-ocean">Saved for all items.</span>}
         </div>

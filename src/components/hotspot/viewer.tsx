@@ -39,19 +39,18 @@ function tagLabel(item: HotspotViewItem) {
   return isUnavailable(item.status) ? "Sold" : item.markerLabel || formatMoney(item.priceCents);
 }
 
-function firstVisible(list: HotspotViewItem[], hideSold: boolean, preferSlug?: string) {
+function firstVisible(list: HotspotViewItem[], preferSlug?: string) {
   if (preferSlug) {
     const match = list.find((i) => i.slug === preferSlug);
-    if (match && !(hideSold && isUnavailable(match.status))) return match;
+    if (match) return match;
   }
-  return list.find((i) => !(hideSold && isUnavailable(i.status))) ?? null;
+  return list[0] ?? null;
 }
 
 export function InteractivePhotoViewer({
   imageUrl,
   items,
   photos,
-  hideSold = false,
   initialItemSlug,
   showBuy = true,
   showMessage = false,
@@ -61,7 +60,6 @@ export function InteractivePhotoViewer({
   imageUrl?: string;
   items?: HotspotViewItem[];
   photos?: HotspotPhoto[];
-  hideSold?: boolean;
   initialItemSlug?: string;
   showBuy?: boolean;
   /** When true, buyers can message the seller about the selected item (garage / produce only). */
@@ -94,13 +92,10 @@ export function InteractivePhotoViewer({
   const dragging = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
-  const visible = useMemo(
-    () => currentItems.filter((i) => !(hideSold && isUnavailable(i.status))),
-    [currentItems, hideSold],
-  );
+  const visible = currentItems;
 
   const [selected, setSelected] = useState<HotspotViewItem | null>(() =>
-    firstVisible(gallery[photoIndex]?.items ?? [], hideSold, initialItemSlug),
+    firstVisible(gallery[photoIndex]?.items ?? [], initialItemSlug),
   );
 
   function reset() {
@@ -118,7 +113,7 @@ export function InteractivePhotoViewer({
     if (wrapped === photoIndex || !gallery.length) return;
     setPhotoIndex(wrapped);
     reset();
-    setSelected(firstVisible(gallery[wrapped].items, hideSold));
+    setSelected(firstVisible(gallery[wrapped].items));
   }
 
   function selectItem(item: HotspotViewItem) {

@@ -4,7 +4,51 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Heart, Home, Menu, MessageCircle, Plus, Search, UserRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+function useUnreadMessageCount() {
+  const { status } = useSession();
+  const pathname = usePathname();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setCount(0);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/messages/unread", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { count?: number };
+        if (!cancelled) setCount(typeof data.count === "number" ? data.count : 0);
+      } catch {
+        if (!cancelled) setCount(0);
+      }
+    }
+    load();
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(load, 30000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
+  }, [status, pathname]);
+
+  return count;
+}
+
+function UnreadBadge({ count }: { count: number }) {
+  if (count < 1) return null;
+  return (
+    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[10px] font-bold leading-none text-white">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 const links = [
   { href: "/", label: "Home" },
@@ -18,6 +62,7 @@ export function Header() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
+  const unread = useUnreadMessageCount();
 
   return (
     <header className="sticky top-0 z-40 border-b border-sand-dark/80 bg-sand/90 backdrop-blur">
@@ -43,15 +88,20 @@ export function Header() {
         </form>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-full px-3 py-1.5 text-sm ${pathname === link.href ? "bg-ocean text-white" : "text-ink/80 hover:bg-white"}`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) => {
+            const isMessages = link.href === "/messages";
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-label={isMessages && unread > 0 ? `Messages, ${unread} unread` : undefined}
+                className={`relative rounded-full px-3 py-1.5 text-sm ${isMessages && unread > 0 ? "pr-5" : ""} ${pathname === link.href ? "bg-ocean text-white" : "text-ink/80 hover:bg-white"}`}
+              >
+                {link.label}
+                {isMessages && <UnreadBadge count={unread} />}
+              </Link>
+            );
+          })}
         </nav>
 
         <Link
@@ -73,11 +123,21 @@ export function Header() {
       {open && (
         <div className="border-t border-sand-dark bg-sand px-4 py-3 lg:hidden">
           <div className="grid grid-cols-2 gap-2">
-            {links.map((link) => (
-              <Link key={link.href} href={link.href} onClick={() => setOpen(false)} className="rounded-xl bg-white px-3 py-2 text-sm">
-                {link.label}
-              </Link>
-            ))}
+            {links.map((link) => {
+              const isMessages = link.href === "/messages";
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  aria-label={isMessages && unread > 0 ? `Messages, ${unread} unread` : undefined}
+                  className={`relative rounded-xl bg-white px-3 py-2 text-sm ${isMessages && unread > 0 ? "pr-6" : ""}`}
+                >
+                  {link.label}
+                  {isMessages && <UnreadBadge count={unread} />}
+                </Link>
+              );
+            })}
             {session?.user?.role === "ADMIN" && (
               <Link href="/admin" onClick={() => setOpen(false)} className="rounded-xl bg-white px-3 py-2 text-sm">
                 Admin
@@ -95,6 +155,7 @@ export function Header() {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const unread = useUnreadMessageCount();
   const items = [
     { href: "/", label: "Home", icon: Home },
     { href: "/browse", label: "Browse", icon: Search },
@@ -109,20 +170,23 @@ export function BottomNav() {
         {items.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
+          const isMessages = item.href === "/messages";
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-label={isMessages && unread > 0 ? `Messages, ${unread} unread` : undefined}
               className={`flex flex-col items-center gap-1 py-2 text-[11px] ${item.primary ? "-mt-3" : ""} ${active ? "text-ocean" : "text-muted"}`}
             >
               <span
                 className={
                   item.primary
-                    ? "flex h-12 w-12 items-center justify-center rounded-full bg-clay text-white shadow-lg"
-                    : "flex h-6 w-6 items-center justify-center"
+                    ? "relative flex h-12 w-12 items-center justify-center rounded-full bg-clay text-white shadow-lg"
+                    : "relative flex h-6 w-6 items-center justify-center"
                 }
               >
                 <Icon className={item.primary ? "h-6 w-6" : "h-5 w-5"} />
+                {isMessages && <UnreadBadge count={unread} />}
               </span>
               {item.label}
             </Link>

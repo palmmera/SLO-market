@@ -78,7 +78,6 @@ export default async function FoodPhotoEditorPage({
         initialFulfillment={collection.fulfillment}
         initialDeliveryFeeCents={collection.deliveryFeeCents}
         initialDeliveryRadiusMiles={collection.deliveryRadiusMiles}
-        initialHideSold={collection.hideSold}
         initialItems={image.hotspots.map((h) => ({
           listingId: h.listing.id,
           slug: h.listing.slug,

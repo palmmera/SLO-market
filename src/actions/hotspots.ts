@@ -274,7 +274,6 @@ export async function removePhotoCollection(collectionId: string) {
 export async function updateCollectionFulfillment(
   collectionId: string,
   fulfillment: FulfillmentMethod,
-  hideSold: boolean,
   deliveryFeeCents = 0,
   deliveryRadiusMiles: number | null = null,
 ) {
@@ -290,7 +289,7 @@ export async function updateCollectionFulfillment(
 
   await prisma.collection.update({
     where: { id: collection.id },
-    data: { fulfillment, hideSold, deliveryFeeCents: feeCents, deliveryRadiusMiles: radius },
+    data: { fulfillment, hideSold: false, deliveryFeeCents: feeCents, deliveryRadiusMiles: radius },
   });
   await prisma.listing.updateMany({
     where: { collectionId: collection.id, sellerId: user.id },

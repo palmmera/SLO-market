@@ -123,7 +123,6 @@ export default async function ListingPage({
                 height: h.height,
                 markerLabel: h.markerLabel,
               }))}
-              hideSold={listing.collection.hideSold}
             />
           ) : (
             <Gallery images={listing.images} title={listing.title} />

@@ -75,7 +75,6 @@ export default async function CollectionPage({
       {collection.images.length > 0 && (
         <div className="mt-5">
           <InteractivePhotoViewer
-            hideSold={collection.hideSold}
             initialItemSlug={sp.item}
             showMessage={!isOwner}
             sellerName={collection.seller.name}
