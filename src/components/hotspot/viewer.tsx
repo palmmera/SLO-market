@@ -108,6 +108,11 @@ export function InteractivePhotoViewer({
     setPan({ x: 0, y: 0 });
   }
 
+  function closeExpanded() {
+    setExpanded(false);
+    reset();
+  }
+
   function goTo(nextIndex: number) {
     const wrapped = (nextIndex + gallery.length) % gallery.length;
     if (wrapped === photoIndex || !gallery.length) return;
@@ -130,7 +135,7 @@ export function InteractivePhotoViewer({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
+      if (e.key === "Escape") closeExpanded();
       if (e.key === "ArrowLeft") goTo(photoIndex - 1);
       if (e.key === "ArrowRight") goTo(photoIndex + 1);
     };
@@ -394,7 +399,7 @@ export function InteractivePhotoViewer({
                 setExpanded(true);
               }}
               className="flex h-9 items-center gap-1.5 rounded-full bg-white/90 px-3 text-sm font-semibold text-ink shadow"
-              aria-label="Expand photo to fullscreen"
+              aria-label="Enlarge photo"
             >
               <Maximize2 className="h-4 w-4" />
               Expand
@@ -417,40 +422,46 @@ export function InteractivePhotoViewer({
       )}
 
       {expanded && (
-        <div className="fixed inset-0 z-[60] flex bg-black/95 backdrop-blur-sm">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 text-white">
-              <span className="hidden text-sm text-white/70 sm:block">
-                {multi
-                  ? "Swipe or arrows for more photos · tap an item · +/− to zoom"
-                  : "Tap an item or price tag · scroll or use +/− to zoom · drag to pan"}
-              </span>
-              <div className="ml-auto flex items-center gap-1.5">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-3 sm:p-6"
+          onClick={closeExpanded}
+        >
+          <style>{`
+            .hotspot-expanded-photo {
+              width: min(84rem, calc((52vh - 4rem) * 4 / 3), calc(92vw - 1.5rem));
+            }
+            @media (min-width: 1024px) {
+              .hotspot-expanded-photo {
+                width: min(84rem, calc((88vh - 4rem) * 4 / 3), calc(92vw - 22rem));
+              }
+            }
+          `}</style>
+          <div
+            className="flex max-h-[88vh] w-max max-w-[92vw] flex-col overflow-hidden rounded-3xl bg-ink/80 shadow-2xl ring-1 ring-white/15 lg:flex-row"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex min-h-0 min-w-0 flex-col">
+              <div className="flex items-center justify-end gap-1.5 px-3 py-2">
                 {zoomControls}
                 <button
                   type="button"
                   onPointerDown={stopControlDrag}
-                  onClick={() => {
-                    setExpanded(false);
-                    reset();
-                  }}
+                  onClick={closeExpanded}
                   className="flex h-9 items-center gap-1.5 rounded-full bg-white/90 px-3 text-sm font-semibold text-ink shadow"
-                  aria-label="Close fullscreen"
+                  aria-label="Close enlarged photo"
                 >
                   <X className="h-4 w-4" />
                   Close
                 </button>
               </div>
-            </div>
-            <div className="flex flex-1 items-center justify-center px-3 pb-3">
-              <div className="relative aspect-[4/3] h-full max-h-full w-full max-w-full overflow-hidden rounded-2xl bg-ink">
+              <div className="hotspot-expanded-photo relative mx-3 mb-3 aspect-[4/3] h-auto overflow-hidden rounded-2xl bg-ink">
                 {stage("h-full w-full")}
               </div>
             </div>
+            <aside className="max-h-[34vh] min-h-0 shrink-0 overflow-y-auto border-t border-white/10 bg-sand/95 p-3 lg:max-h-full lg:w-[min(20rem,32vw)] lg:border-l lg:border-t-0 lg:p-4">
+              {detailPanel}
+            </aside>
           </div>
-          <aside className="w-[min(18rem,38vw)] shrink-0 overflow-y-auto border-l border-white/10 bg-sand/95 p-3 sm:w-[min(22rem,34vw)] sm:p-4">
-            {detailPanel}
-          </aside>
         </div>
       )}
     </>
