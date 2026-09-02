@@ -36,8 +36,10 @@ type GraphResult = { id?: string; post_id?: string; error?: { message?: string }
 async function graphPost(path: string, params: Record<string, string>) {
   const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${path}`);
   const body = new URLSearchParams({ ...params, access_token: pageToken() });
+  console.log("[facebook] graphPost to:", path, "version:", GRAPH_VERSION);
   const res = await fetch(url, { method: "POST", body, signal: AbortSignal.timeout(15_000) });
   const json = (await res.json().catch(() => ({}))) as GraphResult;
+  console.log("[facebook] graphPost response:", res.status, JSON.stringify(json));
   if (!res.ok || json.error?.message) {
     throw new Error(json.error?.message || `Facebook Graph ${res.status}`);
   }
@@ -64,7 +66,10 @@ async function publishPagePost(input: { message: string; link: string; imageUrl?
 
 /** Posts a regular listing to the SLO Marketplace Facebook Page. No-ops if already posted, a draft, or a garage item. */
 export async function shareListingOnFacebookPage(listingId: string) {
-  if (!facebookPageConfigured()) return;
+  if (!facebookPageConfigured()) {
+    console.log("[facebook] skipping - not configured");
+    return;
+  }
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
     include: {
@@ -73,8 +78,14 @@ export async function shareListingOnFacebookPage(listingId: string) {
       images: { orderBy: { sortOrder: "asc" }, take: 1 },
     },
   });
-  if (!listing || listing.status !== ListingStatus.ACTIVE) return;
-  if (listing.collectionId || listing.facebookPostId) return;
+  if (!listing || listing.status !== ListingStatus.ACTIVE) {
+    console.log("[facebook] skipping - listing not found or not active, status:", listing?.status);
+    return;
+  }
+  if (listing.collectionId || listing.facebookPostId) {
+    console.log("[facebook] skipping - is collection item or already posted, collectionId:", listing.collectionId, "facebookPostId:", listing.facebookPostId);
+    return;
+  }
 
   const link = absoluteUrl(`/listing/${listing.slug}`);
   const message = [
@@ -139,8 +150,11 @@ export async function shareCollectionOnFacebookPage(collectionId: string) {
 }
 
 export async function tryShareListingOnFacebook(listingId: string) {
+  console.log("[facebook] tryShareListingOnFacebook called for listing:", listingId);
+  console.log("[facebook] configured:", facebookPageConfigured(), "pageId:", pageId() ? "set" : "missing", "token:", pageToken() ? "set" : "missing");
   try {
     await shareListingOnFacebookPage(listingId);
+    console.log("[facebook] shareListingOnFacebookPage completed for:", listingId);
   } catch (err) {
     console.error("[facebook] listing share failed", listingId, err instanceof Error ? err.message : err);
   }
