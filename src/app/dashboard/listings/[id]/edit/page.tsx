@@ -7,6 +7,7 @@ import { ListingStatus } from "@prisma/client";
 import { refreshStripeStatus } from "@/actions/orders";
 import { revalidatePath } from "next/cache";
 import { parseDepositNote } from "@/lib/utils";
+import { tryShareListingOnFacebook } from "@/lib/facebook-page";
 
 export default async function EditListingPage({
   params,
@@ -69,6 +70,7 @@ export default async function EditListingPage({
     revalidatePath("/");
     revalidatePath("/browse");
     revalidatePath("/dashboard");
+    await tryShareListingOnFacebook(listing.id);
     redirect(`/listing/${listing.slug}`);
   }
 

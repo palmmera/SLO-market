@@ -14,6 +14,7 @@ import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
+import { tryShareListingOnFacebook } from "@/lib/facebook-page";
 
 function extraDetailsWithDeposit(
   base: Record<string, unknown> | null | undefined,
@@ -189,6 +190,7 @@ async function createListingInner(formData: FormData) {
   }
 
   if (enhanced) {
+    await tryShareListingOnFacebook(listing.id);
     return {
       listingId: listing.id,
       slug: listing.slug,
@@ -199,6 +201,7 @@ async function createListingInner(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/browse");
+  await tryShareListingOnFacebook(listing.id);
   return {
     listingId: listing.id,
     slug: listing.slug,
@@ -380,6 +383,7 @@ export async function updateListing(listingId: string, formData: FormData) {
   revalidatePath("/browse");
   revalidatePath("/dashboard");
   revalidatePath(`/listing/${listing.slug}`);
+  if (shouldPublishDraft) await tryShareListingOnFacebook(listing.id);
   return { listingId: listing.id, slug: listing.slug, needsStripeOnboarding: false as const };
 }
 

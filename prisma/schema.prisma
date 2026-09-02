@@ -335,6 +335,7 @@ model Listing {
   soldAt              DateTime?
   publishedAt         DateTime?
   expiresAt           DateTime?
+  facebookPostId      String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -403,6 +404,7 @@ model Collection {
   deliveryFeeCents    Int               @default(0)
   hideSold            Boolean           @default(false)
   status              ListingStatus     @default(DRAFT)
+  facebookPostId      String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   images              CollectionImage[]

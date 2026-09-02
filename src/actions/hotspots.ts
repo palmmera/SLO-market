@@ -10,6 +10,7 @@ import { assertFoodSellerForProduce } from "@/actions/food-seller";
 import { resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
 import { MAX_COLLECTION_PHOTOS } from "@/lib/constants";
+import { tryShareCollectionOnFacebook } from "@/lib/facebook-page";
 
 function photosFromForm(formData: FormData): File[] {
   const listed = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
@@ -227,6 +228,7 @@ export async function saveHotspotItem(input: {
   });
 
   revalidatePath(`/collection/${collection.slug}`);
+  await tryShareCollectionOnFacebook(collection.id);
   return { listingId: listing.id, slug: listing.slug, needsStripeOnboarding: false as const };
 }
 
