@@ -94,10 +94,16 @@ export async function searchListings(params: {
 }) {
   const where: Record<string, unknown> = { status: ListingStatus.ACTIVE, collectionId: null };
   if (params.q) {
-    where.OR = [
-      { title: { contains: params.q, mode: "insensitive" } },
-      { description: { contains: params.q, mode: "insensitive" } },
-    ];
+    const q = params.q.trim();
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+        { extraDetails: { path: ["customCategory"], string_contains: q, mode: "insensitive" } },
+        { category: { name: { contains: q, mode: "insensitive" } } },
+        { category: { parent: { name: { contains: q, mode: "insensitive" } } } },
+      ];
+    }
   }
   if (params.categoryId) {
     const category = await prisma.category.findUnique({
