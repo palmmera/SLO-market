@@ -103,6 +103,28 @@ export function parseDepositNote(extraDetails: unknown) {
   return typeof note === "string" ? sanitizeDepositNote(note) : "";
 }
 
+/** Top-level "Other" or a subcategory like home-other. Not other-services / other-produce. */
+export function isOtherCategorySlug(slug?: string | null) {
+  if (!slug) return false;
+  return slug === "other" || slug.endsWith("-other");
+}
+
+export const CUSTOM_CATEGORY_MAX = 80;
+
+export function sanitizeCustomCategory(raw: unknown) {
+  const text = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!text) return "";
+  return text.slice(0, CUSTOM_CATEGORY_MAX);
+}
+
+export function parseCustomCategory(extraDetails: unknown) {
+  if (!extraDetails || typeof extraDetails !== "object" || Array.isArray(extraDetails)) return "";
+  const value = (extraDetails as Record<string, unknown>).customCategory;
+  return typeof value === "string" ? sanitizeCustomCategory(value) : "";
+}
+
 /** Inclusive calendar days. Jan 1–Jan 5 = 5 days. Same-day start and end = 1 day. */
 export function rentalDaysInclusive(startDate: string, endDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return 0;

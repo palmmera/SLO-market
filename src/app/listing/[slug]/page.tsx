@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { conditionLabel, formatCityCounty, formatDateLabel, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType, parseDepositNote } from "@/lib/utils";
+import { conditionLabel, formatCityCounty, formatDateLabel, formatMoney, initials, isDailyRentalListing, isHousingRentalSlug, isPayableListingType, parseCustomCategory, parseDepositNote } from "@/lib/utils";
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
@@ -69,6 +69,7 @@ export default async function ListingPage({
 
   const extra = (listing.extraDetails as Record<string, string> | null) || {};
   const depositNote = listing.listingType === "RENTAL" ? parseDepositNote(listing.extraDetails) : "";
+  const customCategory = parseCustomCategory(listing.extraDetails);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -130,7 +131,8 @@ export default async function ListingPage({
         </div>
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.2em] text-ocean">
-            {listing.category.parent?.name || listing.category.name} · {formatCityCounty(listing.city.name)}
+            {listing.category.parent?.name || listing.category.name}
+            {customCategory ? ` · ${customCategory}` : ""} · {formatCityCounty(listing.city.name)}
           </p>
           <h1 className="font-display text-4xl">{listing.title}</h1>
           <div className="text-3xl font-bold text-ocean">

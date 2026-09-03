@@ -9,7 +9,8 @@ import { CONDITIONS, DELIVERY_RADIUS_OPTIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
 import { RentalTypePicker } from "@/components/rental-type-picker";
 import { ServiceTypePicker } from "@/components/service-type-picker";
-import { isHousingRentalSlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX } from "@/lib/utils";
+import { isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX, sanitizeCustomCategory } from "@/lib/utils";
+import { OtherCategoryField } from "@/components/other-category-field";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -31,6 +32,7 @@ export type EditListingInitial = {
   categoryParentId: string | null;
   images: ExistingImage[];
   depositNote?: string;
+  customCategory?: string;
 };
 
 export function EditListingForm({
@@ -75,6 +77,11 @@ export function EditListingForm({
   const isServiceListing = listingType === "SERVICE";
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const isHousingRental = isRentalListing && isHousingRentalSlug(selectedCategory?.slug);
+  const showCustomCategory =
+    !isRentalListing &&
+    !isServiceListing &&
+    !selectedParent?.isProduce &&
+    (isOtherCategorySlug(selectedParent?.slug) || isOtherCategorySlug(selectedCategory?.slug));
   const categoryParents = isRentalListing
     ? parents.filter((p) => p.isRental)
     : isServiceListing
@@ -158,6 +165,10 @@ export function EditListingForm({
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
         form.set("categoryId", categoryId);
+        if (showCustomCategory && !sanitizeCustomCategory(form.get("customCategory"))) {
+          setError("Describe what the item is.");
+          return;
+        }
         for (const id of removeImageIds) form.append("removeImageIds", id);
         for (const p of newPhotos) form.append("photos", p.file);
         start(async () => {
@@ -324,6 +335,7 @@ export function EditListingForm({
               </option>
             ))}
           </select>
+          {children.length ? (
           <select
             name="categoryId"
             required
@@ -337,8 +349,10 @@ export function EditListingForm({
               </option>
             ))}
           </select>
+          ) : null}
         </div>
         )}
+        {showCustomCategory && <OtherCategoryField defaultValue={listing.customCategory} />}
         {selectedParent?.isProduce && (
           <p className="mt-3 rounded-xl bg-ocean-light p-3 text-sm text-ocean-dark">
             Local produce listings must follow California and SLO County rules. Do not list prohibited or unpermitted food items.

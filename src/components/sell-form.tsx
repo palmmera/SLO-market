@@ -12,7 +12,8 @@ import Link from "next/link";
 import { RentalTypePicker } from "@/components/rental-type-picker";
 import { ServiceTypePicker } from "@/components/service-type-picker";
 import { ProduceProductType } from "@prisma/client";
-import { isHousingRentalSlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX } from "@/lib/utils";
+import { isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX, sanitizeCustomCategory } from "@/lib/utils";
+import { OtherCategoryField } from "@/components/other-category-field";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -48,6 +49,7 @@ export function SellForm({
   const [listingType, setListingType] = useState("FOR_SALE");
   const [rentalCategoryId, setRentalCategoryId] = useState("");
   const [serviceCategoryId, setServiceCategoryId] = useState("");
+  const [saleCategoryId, setSaleCategoryId] = useState("");
   const [fulfillment, setFulfillment] = useState("PICKUP_ONLY");
   const [enhanced, setEnhanced] = useState(false);
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
@@ -67,6 +69,13 @@ export function SellForm({
     : isServiceListing
       ? parents.filter((p) => p.isService || p.slug === "services")
       : parents.filter((p) => !p.isRental && !p.isService && p.slug !== "services");
+  const saleCategoryOptions = children.length ? children : categoryParents.filter((p) => p.id === parentId);
+  const saleCategory = categories.find((c) => c.id === saleCategoryId) ?? saleCategoryOptions[0];
+  const showCustomCategory =
+    !isRentalListing &&
+    !isServiceListing &&
+    !isProduceListing &&
+    (isOtherCategorySlug(selectedParent?.slug) || isOtherCategorySlug(saleCategory?.slug));
 
   useEffect(() => {
     if (isRentalListing && rentalParent && parentId !== rentalParent.id) {
@@ -81,6 +90,15 @@ export function SellForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingType]);
+
+  useEffect(() => {
+    if (isRentalListing || isServiceListing || isProduceListing) return;
+    const opts = children.length ? children : categoryParents.filter((p) => p.id === parentId);
+    if (!opts.some((c) => c.id === saleCategoryId)) {
+      setSaleCategoryId(opts[0]?.id ?? parentId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentId, listingType, children]);
 
   useEffect(() => {
     return () => {
@@ -140,6 +158,10 @@ export function SellForm({
         if (isProduceListing) {
           form.set("produceProductType", produceProductType);
           if (produceMode && produceParent) form.set("parentCategoryId", produceParent.id);
+        }
+        if (showCustomCategory && !sanitizeCustomCategory(form.get("customCategory"))) {
+          setError("Describe what the item is.");
+          return;
         }
         for (const p of photos) form.append("photos", p.file);
         start(async () => {
@@ -340,17 +362,26 @@ export function SellForm({
                   </option>
                 ))}
               </select>
-            ) : (
-              <select name="categoryId" required className="rounded-2xl border border-sand-dark bg-sand px-4 py-3">
-                {(children.length ? children : categoryParents.filter((p) => p.id === parentId)).map((c) => (
+            ) : children.length ? (
+              <select
+                name="categoryId"
+                required
+                value={saleCategoryId || saleCategoryOptions[0]?.id}
+                onChange={(e) => setSaleCategoryId(e.target.value)}
+                className="rounded-2xl border border-sand-dark bg-sand px-4 py-3"
+              >
+                {saleCategoryOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
               </select>
+            ) : (
+              <input type="hidden" name="categoryId" value={saleCategoryId || parentId} />
             )}
           </div>
         )}
+        {showCustomCategory && <OtherCategoryField />}
         {isProduceListing && !foodSellerActive && (
           <p className="mt-3 rounded-xl bg-gold/20 p-3 text-sm">
             Activate Local Food &amp; Produce Seller status before publishing.{" "}

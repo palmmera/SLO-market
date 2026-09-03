@@ -9,7 +9,7 @@ import { saveListingImage } from "@/lib/storage";
 import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 import { getPlatformSettings } from "@/lib/fees";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
-import { absoluteUrl, isHousingRentalSlug, isServiceSlug, sanitizeDepositNote } from "@/lib/utils";
+import { absoluteUrl, isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, sanitizeCustomCategory, sanitizeDepositNote } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
@@ -20,6 +20,7 @@ function extraDetailsWithDeposit(
   base: Record<string, unknown> | null | undefined,
   listingType: string,
   formData: FormData,
+  isOtherCategory = false,
 ): Prisma.InputJsonValue | undefined {
   const extra: Record<string, string> = {};
   for (const [key, value] of Object.entries(base || {})) {
@@ -31,6 +32,13 @@ function extraDetailsWithDeposit(
     else delete extra.depositNote;
   } else {
     delete extra.depositNote;
+  }
+  if (isOtherCategory) {
+    const custom = sanitizeCustomCategory(formData.get("customCategory"));
+    if (custom) extra.customCategory = custom;
+    else delete extra.customCategory;
+  } else {
+    delete extra.customCategory;
   }
   return Object.keys(extra).length ? extra : undefined;
 }
@@ -101,6 +109,10 @@ async function createListingInner(formData: FormData) {
 
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!category || !city) return { error: "Please choose a valid category and city." };
+  const isOtherCategory = isOtherCategorySlug(category.slug);
+  if (isOtherCategory && !sanitizeCustomCategory(formData.get("customCategory"))) {
+    return { error: "Describe what the item is." };
+  }
 
   const isProduce = Boolean(category.isProduce || category.parent?.isProduce || produceProductType);
   const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
@@ -132,6 +144,7 @@ async function createListingInner(formData: FormData) {
     (produceExtra as Record<string, unknown> | null) || enhancedExtra,
     listingType,
     formData,
+    isOtherCategory,
   );
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
@@ -295,6 +308,10 @@ export async function updateListing(listingId: string, formData: FormData) {
   const category = await prisma.category.findUnique({ where: { id: categoryId }, include: { parent: true } });
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!category || !city) throw new Error("Please choose a valid category and city.");
+  const isOtherCategory = isOtherCategorySlug(category.slug);
+  if (isOtherCategory && !sanitizeCustomCategory(formData.get("customCategory"))) {
+    throw new Error("Describe what the item is.");
+  }
   const isRentalCat = Boolean(category.isRental || category.parent?.isRental);
   const isServiceCat = Boolean(category.isService || category.parent?.isService || isServiceSlug(category.slug) || isServiceSlug(category.parent?.slug));
   if (listingType === "RENTAL" && !isRentalCat) throw new Error("Choose a rental category.");
@@ -312,7 +329,7 @@ export async function updateListing(listingId: string, formData: FormData) {
     existing.extraDetails && typeof existing.extraDetails === "object" && !Array.isArray(existing.extraDetails)
       ? (existing.extraDetails as Record<string, unknown>)
       : {};
-  const extraDetails = extraDetailsWithDeposit(existingExtra, listingType, formData);
+  const extraDetails = extraDetailsWithDeposit(existingExtra, listingType, formData, isOtherCategory);
 
   const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
   const stripeReady =

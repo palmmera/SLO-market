@@ -51,6 +51,7 @@ const categories: CategorySeed[] = [
       { name: "Bedroom", slug: "bedroom" },
       { name: "Living Room", slug: "living-room" },
       { name: "Appliances", slug: "appliances" },
+      { name: "Other", slug: "home-other" },
     ],
   },
   {
@@ -65,6 +66,7 @@ const categories: CategorySeed[] = [
       { name: "Construction", slug: "construction" },
       { name: "Hardware", slug: "hardware" },
       { name: "Workshop Equipment", slug: "workshop-equipment" },
+      { name: "Other", slug: "tools-other" },
     ],
   },
   {
@@ -79,6 +81,7 @@ const categories: CategorySeed[] = [
       { name: "Cameras", slug: "cameras" },
       { name: "Gaming", slug: "gaming" },
       { name: "Accessories", slug: "electronics-accessories" },
+      { name: "Other", slug: "electronics-other" },
     ],
   },
   {
@@ -92,6 +95,7 @@ const categories: CategorySeed[] = [
       { name: "Trailers", slug: "trailers" },
       { name: "Parts", slug: "vehicle-parts" },
       { name: "Accessories", slug: "vehicle-accessories" },
+      { name: "Other", slug: "cars-other" },
     ],
   },
   {
@@ -104,6 +108,7 @@ const categories: CategorySeed[] = [
       { name: "Kids", slug: "kids-clothing" },
       { name: "Shoes", slug: "shoes" },
       { name: "Accessories", slug: "clothing-accessories" },
+      { name: "Other", slug: "clothing-other" },
     ],
   },
   {
@@ -116,6 +121,7 @@ const categories: CategorySeed[] = [
       { name: "Clothing", slug: "baby-clothing" },
       { name: "Furniture", slug: "kids-furniture" },
       { name: "Strollers", slug: "strollers" },
+      { name: "Other", slug: "kids-other" },
     ],
   },
   {
@@ -130,6 +136,7 @@ const categories: CategorySeed[] = [
       { name: "Surfing", slug: "surfing" },
       { name: "Bikes", slug: "bikes" },
       { name: "Outdoor Equipment", slug: "outdoor-equipment" },
+      { name: "Other", slug: "sports-other" },
     ],
   },
   {
@@ -141,6 +148,7 @@ const categories: CategorySeed[] = [
       { name: "Instruments", slug: "instruments" },
       { name: "Audio Equipment", slug: "music-audio" },
       { name: "Music Accessories", slug: "music-accessories" },
+      { name: "Other", slug: "music-other" },
     ],
   },
   {
@@ -153,6 +161,7 @@ const categories: CategorySeed[] = [
       { name: "Garden Supplies", slug: "garden-supplies" },
       { name: "Flowers", slug: "garden-flowers" },
       { name: "Seeds", slug: "seeds" },
+      { name: "Other", slug: "garden-other" },
     ],
   },
   {
@@ -182,6 +191,7 @@ const categories: CategorySeed[] = [
       { name: "Equipment", slug: "office-equipment" },
       { name: "Supplies", slug: "office-supplies" },
       { name: "Tools", slug: "office-tools" },
+      { name: "Other", slug: "business-other" },
     ],
   },
   {
@@ -199,6 +209,7 @@ const categories: CategorySeed[] = [
       { name: "Toys & Games", slug: "garage-toys" },
       { name: "Kitchen & Dining", slug: "garage-kitchen" },
       { name: "Outdoor & Garden", slug: "garage-outdoor" },
+      { name: "Other", slug: "garage-other" },
     ],
   },
   {
@@ -250,7 +261,8 @@ const categories: CategorySeed[] = [
     name: "Other",
     slug: "other",
     icon: "box",
-    isActive: false,
+    seoTitle: "Other Listings in San Luis Obispo County | SLO Market",
+    seoDescription: "Items that don’t fit a listed category, from neighbors across SLO County.",
   },
 ];
 
