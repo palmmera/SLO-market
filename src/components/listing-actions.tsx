@@ -6,10 +6,12 @@ import { Heart } from "lucide-react";
 import { startMessage, toggleFavorite, reportContent, blockUser } from "@/actions/listings";
 import { suggestedFirstMessage } from "@/lib/constants";
 import { RentalDateRange } from "@/components/rental-date-range";
+import { ShareToFacebook } from "@/components/share-to-facebook";
 import { formatDateLabel, MAX_DAILY_RENTAL_DAYS, overlappingBookedRange, rentalDaysInclusive, type RentalDateRangeValue } from "@/lib/utils";
 
 export function ListingActions({
   listingId,
+  listingPath,
   sellerId,
   sellerName,
   canBuy,
@@ -21,6 +23,7 @@ export function ListingActions({
   bookedRanges = [],
 }: {
   listingId: string;
+  listingPath: string;
   sellerId: string;
   sellerName?: string | null;
   canBuy: boolean;
@@ -103,6 +106,7 @@ export function ListingActions({
           </form>
         </>
       )}
+      <ShareToFacebook path={listingPath} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-ocean-light py-3 text-sm font-semibold text-ocean" />
       <div className="flex gap-2">
         <button
           onClick={() =>

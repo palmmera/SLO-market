@@ -1,9 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
+import { ShareToFacebook } from "@/components/share-to-facebook";
 import { formatCityCounty, conditionLabel, formatMoney } from "@/lib/utils";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const collection = await prisma.collection.findUnique({
+    where: { slug: (await params).slug },
+    include: { city: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+  });
+  if (!collection) return { title: "Sale" };
+  const image = collection.images[0]?.displayUrl || collection.images[0]?.originalUrl;
+  const kind = collection.type === "PRODUCE_STAND" ? "Produce stand" : "Garage sale";
+  return {
+    title: collection.title,
+    description: `${kind} in ${collection.city.name}, San Luis Obispo County.`,
+    openGraph: {
+      title: collection.title,
+      description: `${kind} in ${collection.city.name}, San Luis Obispo County.`,
+      images: image ? [image] : undefined,
+    },
+  };
+}
 
 export default async function CollectionPage({
   params,
@@ -71,6 +92,10 @@ export default async function CollectionPage({
             {isProduceStand ? "Edit produce stand" : "Edit garage sale"}
           </Link>
         )}
+        <ShareToFacebook
+          path={`/collection/${collection.slug}`}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-ocean-light px-4 py-2 text-sm font-semibold text-ocean"
+        />
       </div>
       {collection.images.length > 0 && (
         <div className="mt-5">
