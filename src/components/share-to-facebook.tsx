@@ -1,3 +1,5 @@
+"use client";
+
 import { clsx } from "clsx";
 import { Share2 } from "lucide-react";
 
