@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
-import { ShareToFacebook } from "@/components/share-to-facebook";
 import { formatCityCounty, conditionLabel, formatMoney } from "@/lib/utils";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -92,10 +91,6 @@ export default async function CollectionPage({
             {isProduceStand ? "Edit produce stand" : "Edit garage sale"}
           </Link>
         )}
-        <ShareToFacebook
-          path={`/collection/${collection.slug}`}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-ocean-light px-4 py-2 text-sm font-semibold text-ocean"
-        />
       </div>
       {collection.images.length > 0 && (
         <div className="mt-5">

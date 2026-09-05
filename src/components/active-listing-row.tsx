@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { removeListing } from "@/actions/listings";
 import { formatMoney, isDailyRentalListing, isHousingRentalSlug } from "@/lib/utils";
-import { ShareToFacebook } from "@/components/share-to-facebook";
 
 export type ActiveListingRowData = {
   id: string;
@@ -65,11 +64,6 @@ export function ActiveListingRow({ listing }: { listing: ActiveListingRowData })
         )}
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-        <ShareToFacebook
-          path={`/listing/${listing.slug}`}
-          label="Facebook"
-          className="rounded-full bg-ocean-light px-3 py-1.5 text-center text-xs font-semibold text-ocean"
-        />
         <Link
           href={`/dashboard/listings/${listing.id}/edit`}
           className="rounded-full bg-sand px-3 py-1.5 text-center text-xs font-semibold text-ink"

@@ -4,11 +4,38 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { ListingStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { notify } from "@/lib/notifications";
 
 export async function adminRemoveListing(listingId: string) {
+  const admin = await requireAdmin();
+  const listing = await prisma.listing.update({
+    where: { id: listingId },
+    data: { status: ListingStatus.REMOVED },
+    select: { id: true, title: true, slug: true, sellerId: true },
+  });
+  await prisma.auditLog.create({
+    data: { action: "REMOVE_LISTING", target: listingId, actorId: admin.id },
+  });
+  await notify({
+    userId: listing.sellerId,
+    type: "LISTING_REMOVED",
+    title: "Your listing was removed",
+    body: `Your listing “${listing.title}” was removed because it violated SLO Market’s terms and policies. Please review our Terms and Safety guidelines before listing again. Repeat violations can lead to account suspension.`,
+    link: "/terms",
+  });
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/browse");
+  revalidatePath(`/listing/${listing.slug}`);
+}
+
+export async function adminUnsuspendUser(userId: string) {
   await requireAdmin();
-  await prisma.listing.update({ where: { id: listingId }, data: { status: ListingStatus.REMOVED } });
-  await prisma.auditLog.create({ data: { action: "REMOVE_LISTING", target: listingId } });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isSuspended: false, suspendedAt: null, suspendReason: null },
+  });
+  await prisma.auditLog.create({ data: { action: "UNSUSPEND_USER", target: userId } });
   revalidatePath("/admin");
 }
 

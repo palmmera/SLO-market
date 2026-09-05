@@ -187,7 +187,6 @@ export default async function ListingPage({
           )}
           <ListingActions
             listingId={listing.id}
-            listingPath={`/listing/${listing.slug}`}
             sellerId={listing.sellerId}
             sellerName={listing.seller.name}
             canBuy={canBuy}

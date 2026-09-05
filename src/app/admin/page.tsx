@@ -12,19 +12,26 @@ import {
   adminSaveCity,
   adminSaveProhibited,
   adminSuspendUser,
+  adminUnsuspendUser,
   adminUpdateSettings,
   adminPurgeExpiredImages,
   adminMarkContactRead,
   adminResolveContactMessage,
   adminDeleteContactMessage,
 } from "@/actions/admin";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, ListingStatus } from "@prisma/client";
 import Link from "next/link";
 import { IMAGE_RETENTION_DAYS } from "@/lib/cleanup-images";
+import { ShareToFacebook } from "@/components/share-to-facebook";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ listing?: string }>;
+}) {
   const session = await getSession();
   if (session?.user?.role !== "ADMIN") redirect("/");
+  const listingQuery = String((await searchParams).listing ?? "").trim();
 
   const since = new Date();
   since.setHours(0, 0, 0, 0);
@@ -44,8 +51,16 @@ export default async function AdminPage() {
     settings,
     stats,
   ] = await Promise.all([
-    prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { city: true } }),
-    prisma.listing.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { seller: true, city: true } }),
+    prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 40, include: { city: true } }),
+    prisma.listing.findMany({
+      where: {
+        status: ListingStatus.ACTIVE,
+        ...(listingQuery ? { title: { contains: listingQuery, mode: "insensitive" } } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: listingQuery ? 50 : 40,
+      include: { seller: true, city: true, collection: { select: { slug: true } } },
+    }),
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { buyer: true, seller: true } }),
     prisma.report.findMany({ where: { status: "OPEN" }, orderBy: { createdAt: "desc" }, include: { reporter: true, listing: true } }),
     prisma.dispute.findMany({ where: { status: "OPEN" }, include: { order: true } }),
@@ -166,13 +181,24 @@ export default async function AdminPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-b border-sand">
-                  <td className="p-3">{u.name}</td>
+                  <td className="p-3">
+                    {u.name}
+                    {u.isSuspended ? <span className="ml-2 text-xs font-semibold text-clay">Suspended</span> : null}
+                  </td>
                   <td>{u.email}</td>
                   <td>{u.city?.name}</td>
                   <td className="p-3">
-                    <form action={adminSuspendUser.bind(null, u.id, "Suspended by admin")}>
-                      <button className="text-clay">Suspend</button>
-                    </form>
+                    {u.email.startsWith("deleted-") ? (
+                      <span className="text-xs text-muted">Deleted</span>
+                    ) : u.isSuspended ? (
+                      <form action={adminUnsuspendUser.bind(null, u.id)}>
+                        <button className="text-ocean">Unsuspend</button>
+                      </form>
+                    ) : (
+                      <form action={adminSuspendUser.bind(null, u.id, "Suspended by admin")}>
+                        <button className="text-clay">Suspend</button>
+                      </form>
+                    )}
                     <form action={adminDeleteUser.bind(null, u.id)}>
                       <button className="text-xs text-muted">Delete</button>
                     </form>
@@ -185,23 +211,47 @@ export default async function AdminPage() {
       </section>
 
       <section>
-        <h2 className="font-display text-2xl">Listings</h2>
+        <h2 className="font-display text-2xl">Active listings</h2>
+        <p className="mt-1 text-sm text-muted">Removed listings are hidden. Search by item name.</p>
+        <form action="/admin" method="get" className="mt-3 flex flex-wrap gap-2">
+          <input
+            name="listing"
+            defaultValue={listingQuery}
+            placeholder="Search by listing name"
+            className="min-w-[16rem] flex-1 rounded-xl bg-white px-3 py-2 text-sm card-shadow"
+          />
+          <button className="rounded-xl bg-ocean px-4 py-2 text-sm font-semibold text-white">Search</button>
+          {listingQuery ? (
+            <Link href="/admin" className="rounded-xl bg-sand px-4 py-2 text-sm font-semibold">
+              Clear
+            </Link>
+          ) : null}
+        </form>
         <div className="mt-3 grid gap-2">
-          {listings.map((l) => (
-            <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white p-3 card-shadow">
-              <Link href={`/listing/${l.slug}`} className="font-medium">
-                {l.title} · {l.city.name} · {l.status}
-              </Link>
-              <div className="flex gap-2 text-sm">
-                <form action={adminFeatureListing.bind(null, l.id, !l.isFeatured)}>
-                  <button>{l.isFeatured ? "Unfeature" : "Feature"}</button>
-                </form>
-                <form action={adminRemoveListing.bind(null, l.id)}>
-                  <button className="text-clay">Remove</button>
-                </form>
+          {listings.length === 0 ? (
+            <p className="text-sm text-muted">{listingQuery ? "No active listings match that name." : "No active listings."}</p>
+          ) : (
+            listings.map((l) => (
+              <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white p-3 card-shadow">
+                <Link href={l.collection?.slug ? `/collection/${l.collection.slug}` : `/listing/${l.slug}`} className="font-medium">
+                  {l.title} · {l.city.name} · {l.seller.name}
+                </Link>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <ShareToFacebook
+                    path={l.collection?.slug ? `/collection/${l.collection.slug}` : `/listing/${l.slug}`}
+                    label="Facebook"
+                    className="rounded-full bg-ocean-light px-3 py-1.5 text-xs font-semibold text-ocean"
+                  />
+                  <form action={adminFeatureListing.bind(null, l.id, !l.isFeatured)}>
+                    <button>{l.isFeatured ? "Unfeature" : "Feature"}</button>
+                  </form>
+                  <form action={adminRemoveListing.bind(null, l.id)}>
+                    <button className="text-clay">Remove</button>
+                  </form>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 

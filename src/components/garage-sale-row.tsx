@@ -11,7 +11,6 @@ import { useTransition } from "react";
 import { CollectionType } from "@prisma/client";
 
 import { removePhotoCollection } from "@/actions/hotspots";
-import { ShareToFacebook } from "@/components/share-to-facebook";
 
 
 
@@ -113,11 +112,6 @@ export function GarageSaleRow({ sale }: { sale: PhotoSaleRowData }) {
 
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
 
-        <ShareToFacebook
-          path={`/collection/${sale.slug}`}
-          label="Facebook"
-          className="rounded-full bg-ocean-light px-3 py-1.5 text-center text-xs font-semibold text-ocean"
-        />
         <Link href={editHref} className="rounded-full bg-sand px-3 py-1.5 text-center text-xs font-semibold text-ink">
 
           Edit
