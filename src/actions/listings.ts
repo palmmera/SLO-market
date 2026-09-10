@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Condition, FulfillmentMethod, ListingStatus, ListingType, Prisma } from "@prisma/client";
+import { Condition, FulfillmentMethod, ListingStatus, ListingType, OfferStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { uniqueListingSlug } from "@/lib/slug";
@@ -9,7 +9,7 @@ import { saveListingImage } from "@/lib/storage";
 import { notify, notifyFavoritesListingChange } from "@/lib/notifications";
 import { getPlatformSettings } from "@/lib/fees";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
-import { absoluteUrl, isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, sanitizeCustomCategory, sanitizeDepositNote } from "@/lib/utils";
+import { absoluteUrl, isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, parseListingQuantity, parseOfferSettings, sanitizeCustomCategory, sanitizeDepositNote } from "@/lib/utils";
 import { deleteListingImageFiles } from "@/lib/cleanup-images";
 import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
@@ -148,6 +148,8 @@ async function createListingInner(formData: FormData) {
   );
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
+  const quantity = parseListingQuantity(formData.get("quantity"), listingType);
+  const offerSettings = parseOfferSettings(formData, listingType, priceCents);
   const slug = await uniqueListingSlug(title, city.name);
   const seoTitle = `${title} in ${city.name} | SLO Market`;
   const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
@@ -160,6 +162,9 @@ async function createListingInner(formData: FormData) {
       listingType,
       condition: listingType === "SERVICE" || listingType === "WANTED" || isProduce ? null : condition,
       priceCents,
+      quantity,
+      offersEnabled: offerSettings.offersEnabled,
+      minOfferCents: offerSettings.minOfferCents,
       status: stripeReady ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
       sellerId: user.id,
       categoryId,
@@ -322,6 +327,8 @@ export async function updateListing(listingId: string, formData: FormData) {
   const savedFulfillment = housingRental ? FulfillmentMethod.PICKUP_ONLY : fulfillment;
 
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
+  const quantity = parseListingQuantity(formData.get("quantity"), listingType);
+  const offerSettings = parseOfferSettings(formData, listingType, priceCents);
   const priceChanged = priceCents !== existing.priceCents;
   const seoTitle = `${title} in ${city.name} | SLO Market`;
   const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
@@ -346,6 +353,9 @@ export async function updateListing(listingId: string, formData: FormData) {
       listingType,
       condition: listingType === "SERVICE" || listingType === "WANTED" ? null : condition,
       priceCents,
+      quantity,
+      offersEnabled: offerSettings.offersEnabled,
+      minOfferCents: offerSettings.minOfferCents,
       categoryId,
       cityId,
       fulfillment: savedFulfillment,
@@ -360,6 +370,18 @@ export async function updateListing(listingId: string, formData: FormData) {
         : {}),
     },
   });
+
+  if (!offerSettings.offersEnabled) {
+    await prisma.listingOffer.updateMany({
+      where: { listingId, status: OfferStatus.PENDING },
+      data: { status: OfferStatus.DECLINED, respondedAt: new Date() },
+    });
+  } else if (offerSettings.minOfferCents) {
+    await prisma.listingOffer.updateMany({
+      where: { listingId, status: OfferStatus.PENDING, amountCents: { lt: offerSettings.minOfferCents } },
+      data: { status: OfferStatus.DECLINED, autoDeclined: true, respondedAt: new Date() },
+    });
+  }
 
   const removeImageIds = formData.getAll("removeImageIds").map(String).filter(Boolean);
   if (removeImageIds.length) {
@@ -418,7 +440,11 @@ export async function markListingSold(listingId: string) {
   if (!listing) throw new Error("Listing not found.");
   await prisma.listing.update({
     where: { id: listingId },
-    data: { status: ListingStatus.SOLD, soldAt: new Date() },
+    data: { status: ListingStatus.SOLD, soldAt: new Date(), quantity: 0 },
+  });
+  await prisma.listingOffer.updateMany({
+    where: { listingId, status: OfferStatus.PENDING },
+    data: { status: OfferStatus.DECLINED, respondedAt: new Date() },
   });
   await notifyFavoritesListingChange(listingId, "LISTING_SOLD", "Listing sold", `${listing.title} was marked as sold.`);
 }

@@ -7,6 +7,7 @@ import { conditionLabel, formatCityCounty, formatDateLabel, formatMoney, initial
 import { Gallery, ListingActions } from "@/components/listing-actions";
 import { MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
+import { ListingOfferForm } from "@/components/listing-offer-form";
 import { RentalDepositNote } from "@/components/rental-deposit-note";
 import { calculateFees, getPlatformSettings } from "@/lib/fees";
 import { ListingStatus } from "@prisma/client";
@@ -94,6 +95,13 @@ export default async function ListingPage({
   });
 
   const canBuy = listing.status === "ACTIVE" && isPayableListingType(listing.listingType) && listing.priceCents > 0;
+  const isOwner = session?.user?.id === listing.sellerId;
+  const acceptedOffer =
+    session?.user?.id && listing.status === "ACTIVE"
+      ? await prisma.listingOffer.findFirst({
+          where: { listingId: listing.id, buyerId: session.user.id, status: "ACCEPTED" },
+        })
+      : null;
   const housingRental = listing.listingType === "RENTAL" && isHousingRentalSlug(listing.category.slug);
   const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);
   const bookedRanges = dailyRental ? await getBookedRentalRanges(listing.id) : [];
@@ -136,12 +144,15 @@ export default async function ListingPage({
           </p>
           <h1 className="font-display text-4xl">{listing.title}</h1>
           <div className="text-3xl font-bold text-ocean">
-            {listing.listingType === "FREE" || listing.priceCents === 0
-              ? "FREE"
-              : dailyRental
-                ? `${formatMoney(listing.priceCents)}/day`
-                : formatMoney(listing.priceCents)}
+          {listing.listingType === "FREE" || listing.priceCents === 0
+            ? "FREE"
+            : dailyRental
+              ? `${formatMoney(listing.priceCents)}/day`
+              : formatMoney(listing.priceCents)}
           </div>
+          {listing.listingType !== "RENTAL" && listing.listingType !== "SERVICE" && listing.quantity > 1 && (
+            <p className="text-sm text-muted">{listing.quantity} available</p>
+          )}
           {dailyRental && listing.priceCents > 0 && (
             <p className="text-sm text-muted">
               {housingRental
@@ -192,11 +203,38 @@ export default async function ListingPage({
             canBuy={canBuy}
             buyLabel={dailyRental ? "Rent Now" : "Buy Now"}
             favorited={favorited}
-            isOwner={session?.user?.id === listing.sellerId}
+            isOwner={isOwner}
             dailyRental={dailyRental}
             dailyRateCents={listing.priceCents}
             bookedRanges={bookedRanges}
           />
+          {acceptedOffer && (
+            <Link
+              href={`/checkout/${listing.id}?offer=${acceptedOffer.id}`}
+              className="block rounded-2xl bg-ocean px-4 py-3 text-center text-sm font-semibold text-white"
+            >
+              Pay accepted offer ({formatMoney(acceptedOffer.amountCents)}
+              {acceptedOffer.quantity > 1 ? ` × ${acceptedOffer.quantity}` : ""})
+            </Link>
+          )}
+          {!isOwner &&
+            listing.listingType === "FOR_SALE" &&
+            listing.offersEnabled &&
+            listing.minOfferCents &&
+            listing.status === "ACTIVE" &&
+            !listing.collectionId &&
+            (session?.user?.id ? (
+              <ListingOfferForm
+                listingId={listing.id}
+                askingCents={listing.priceCents}
+                minOfferCents={listing.minOfferCents}
+                maxQuantity={listing.quantity}
+              />
+            ) : (
+              <Link href={`/login?callbackUrl=/listing/${listing.slug}`} className="block rounded-2xl bg-sand px-4 py-3 text-center text-sm font-semibold text-ocean">
+                Sign in to make an offer
+              </Link>
+            ))}
           <Link href={`/u/${listing.seller.id}`} className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow">
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-ocean-light font-semibold text-ocean">
               {listing.seller.image ? (

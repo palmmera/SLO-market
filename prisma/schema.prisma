@@ -91,6 +91,15 @@ enum NotificationType {
   REFUND
   DISPUTE
   STRIPE_ONBOARDING
+  OFFER_RECEIVED
+  OFFER_ACCEPTED
+  OFFER_DECLINED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }
 
 enum StripeFeeTreatment {
@@ -175,6 +184,8 @@ model User {
   auditLogs             AuditLog[]
   passwordResetTokens   PasswordResetToken[]
   foodSellerProfile     FoodSellerProfile?
+  offersMade            ListingOffer[]                 @relation("BuyerOffers")
+  offersReceived        ListingOffer[]                 @relation("SellerOffers")
 
   @@index([email])
   @@index([cityId])
@@ -310,6 +321,9 @@ model Listing {
   listingType         ListingType
   condition           Condition?
   priceCents          Int               @default(0)
+  quantity            Int               @default(1)
+  offersEnabled       Boolean           @default(false)
+  minOfferCents       Int?
   status              ListingStatus     @default(DRAFT)
   sellerId            String
   seller              User              @relation("SellerListings", fields: [sellerId], references: [id])
@@ -344,6 +358,7 @@ model Listing {
   conversations Conversation[]
   orderItems    OrderItem[]
   reports       Report[]
+  offers        ListingOffer[]
 
   @@index([status, publishedAt])
   @@index([status, expiresAt])
@@ -352,6 +367,27 @@ model Listing {
   @@index([sellerId])
   @@index([listingType, status])
   @@index([isFeatured, status])
+}
+
+model ListingOffer {
+  id           String      @id @default(cuid())
+  listingId    String
+  listing      Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId      String
+  buyer        User        @relation("BuyerOffers", fields: [buyerId], references: [id])
+  sellerId     String
+  seller       User        @relation("SellerOffers", fields: [sellerId], references: [id])
+  amountCents  Int
+  quantity     Int         @default(1)
+  status       OfferStatus @default(PENDING)
+  autoDeclined Boolean     @default(false)
+  respondedAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([listingId, status])
+  @@index([sellerId, status])
+  @@index([buyerId, status])
 }
 
 model ListingImage {

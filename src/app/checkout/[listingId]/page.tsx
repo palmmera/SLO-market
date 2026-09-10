@@ -11,7 +11,7 @@ export default async function CheckoutPage({
   searchParams,
 }: {
   params: Promise<{ listingId: string }>;
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; offer?: string }>;
 }) {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
@@ -24,6 +24,18 @@ export default async function CheckoutPage({
   const housingRental = isHousingRentalSlug(listing.category.slug);
   const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);
   const bookedRanges = dailyRental ? await getBookedRentalRanges(listing.id) : [];
+  const offer = sp.offer
+    ? await prisma.listingOffer.findFirst({
+        where: {
+          id: sp.offer,
+          listingId: listing.id,
+          buyerId: session.user.id,
+          status: "ACCEPTED",
+        },
+      })
+    : null;
+  const itemPriceCents = offer ? offer.amountCents : listing.priceCents;
+  const availableQuantity = offer ? offer.quantity : listing.quantity;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
@@ -31,7 +43,7 @@ export default async function CheckoutPage({
         listingId={listing.id}
         title={listing.title}
         sellerName={listing.seller.name}
-        itemPriceCents={listing.priceCents}
+        itemPriceCents={itemPriceCents}
         canDeliver={!housingRental && listing.fulfillment === "LOCAL_DELIVERY"}
         freeDelivery={listing.freeDelivery}
         deliveryFeeCents={listing.deliveryFeeCents}
@@ -43,6 +55,8 @@ export default async function CheckoutPage({
         initialEndDate={sp.to || ""}
         bookedRanges={bookedRanges}
         depositNote={dailyRental ? parseDepositNote(listing.extraDetails) : ""}
+        availableQuantity={dailyRental ? 1 : availableQuantity}
+        offerId={offer?.id || ""}
       />
       <p className="mt-4 text-xs text-muted">Card numbers never touch SLO Market servers.</p>
     </div>

@@ -14,6 +14,7 @@ import { ServiceTypePicker } from "@/components/service-type-picker";
 import { ProduceProductType } from "@prisma/client";
 import { isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX, sanitizeCustomCategory } from "@/lib/utils";
 import { OtherCategoryField } from "@/components/other-category-field";
+import { QuantityOfferFields } from "@/components/quantity-offer-fields";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -495,6 +496,7 @@ export function SellForm({
             This item is free
           </label>
         )}
+        <QuantityOfferFields listingType={listingType} />
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
             {isHousingRental

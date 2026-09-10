@@ -11,6 +11,7 @@ import { RentalTypePicker } from "@/components/rental-type-picker";
 import { ServiceTypePicker } from "@/components/service-type-picker";
 import { isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX, sanitizeCustomCategory } from "@/lib/utils";
 import { OtherCategoryField } from "@/components/other-category-field";
+import { QuantityOfferFields } from "@/components/quantity-offer-fields";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -33,6 +34,9 @@ export type EditListingInitial = {
   images: ExistingImage[];
   depositNote?: string;
   customCategory?: string;
+  quantity?: number;
+  offersEnabled?: boolean;
+  minOfferCents?: number | null;
 };
 
 export function EditListingForm({
@@ -452,6 +456,12 @@ export function EditListingForm({
             This item is free
           </label>
         )}
+        <QuantityOfferFields
+          listingType={listingType}
+          defaultQuantity={listing.quantity ?? 1}
+          defaultOffersEnabled={Boolean(listing.offersEnabled)}
+          defaultMinOffer={listing.minOfferCents ? (listing.minOfferCents / 100).toFixed(2) : ""}
+        />
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
             {isHousingRental

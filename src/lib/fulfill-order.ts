@@ -96,17 +96,33 @@ export async function fulfillMarketplaceOrder(session: Stripe.Checkout.Session) 
   for (const item of order.items) {
     const keepListed = isDailyRentalListing(item.listing.listingType, item.listing.category.slug);
     if (!keepListed) {
-      await prisma.listing.update({
-        where: { id: item.listingId },
-        data: { status: ListingStatus.SOLD, soldAt: new Date() },
-      });
-      if (item.listing.hotspot) {
-        await prisma.listingHotspot.update({
-          where: { listingId: item.listingId },
-          data: { markerLabel: "Sold" },
+      const remaining = Math.max(0, (item.listing.quantity || 1) - (item.quantity || 1));
+      if (remaining <= 0) {
+        await prisma.listing.update({
+          where: { id: item.listingId },
+          data: { status: ListingStatus.SOLD, soldAt: new Date(), quantity: 0 },
+        });
+        if (item.listing.hotspot) {
+          await prisma.listingHotspot.update({
+            where: { listingId: item.listingId },
+            data: { markerLabel: "Sold" },
+          });
+        }
+        await notifyFavoritesListingChange(item.listingId, "LISTING_SOLD", "Item sold", `${item.title} was purchased.`);
+        await prisma.listingOffer.updateMany({
+          where: { listingId: item.listingId, status: "PENDING" },
+          data: { status: "DECLINED", respondedAt: new Date() },
+        });
+      } else {
+        await prisma.listing.update({
+          where: { id: item.listingId },
+          data: { quantity: remaining },
+        });
+        await prisma.listingOffer.updateMany({
+          where: { listingId: item.listingId, status: "PENDING", quantity: { gt: remaining } },
+          data: { status: "DECLINED", respondedAt: new Date() },
         });
       }
-      await notifyFavoritesListingChange(item.listingId, "LISTING_SOLD", "Item sold", `${item.title} was purchased.`);
     }
     if (item.listing.collection?.slug) {
       revalidatePath(`/collection/${item.listing.collection.slug}`);

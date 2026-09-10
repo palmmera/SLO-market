@@ -125,6 +125,28 @@ export function parseCustomCategory(extraDetails: unknown) {
   return typeof value === "string" ? sanitizeCustomCategory(value) : "";
 }
 
+export const MAX_LISTING_QUANTITY = 99;
+
+export function parseListingQuantity(raw: unknown, listingType: string) {
+  if (listingType !== "FOR_SALE" && listingType !== "FREE") return 1;
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(MAX_LISTING_QUANTITY, n);
+}
+
+export function parseOfferSettings(formData: FormData, listingType: string, priceCents: number) {
+  if (listingType !== "FOR_SALE" || priceCents <= 0) {
+    return { offersEnabled: false, minOfferCents: null as number | null };
+  }
+  const enabled = formData.get("offersEnabled") === "on" || formData.get("offersEnabled") === "1";
+  if (!enabled) return { offersEnabled: false, minOfferCents: null };
+  const min = Math.round(Number(formData.get("minOffer") || 0) * 100);
+  if (!(min > 0) || min > priceCents) {
+    throw new Error("Set a minimum offer above $0 and no higher than your asking price.");
+  }
+  return { offersEnabled: true, minOfferCents: min };
+}
+
 /** Inclusive calendar days. Jan 1–Jan 5 = 5 days. Same-day start and end = 1 day. */
 export function rentalDaysInclusive(startDate: string, endDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return 0;

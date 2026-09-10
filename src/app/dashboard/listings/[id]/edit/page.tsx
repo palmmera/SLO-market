@@ -119,6 +119,9 @@ export default async function EditListingPage({
             categoryParentId: listing.category.parentId,
             depositNote: parseDepositNote(listing.extraDetails),
             customCategory: parseCustomCategory(listing.extraDetails),
+            quantity: listing.quantity,
+            offersEnabled: listing.offersEnabled,
+            minOfferCents: listing.minOfferCents,
             images: listing.images.map((img) => ({
               id: img.id,
               url: img.url,

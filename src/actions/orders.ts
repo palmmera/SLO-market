@@ -29,6 +29,7 @@ export async function createCheckoutSession(
   listingId: string,
   fulfillment: FulfillmentMethod,
   rentalPeriod?: { startDate: string; endDate: string } | null,
+  options?: { quantity?: number; offerId?: string },
 ) {
   const buyer = await currentUser();
   if (!stripeConfigured()) throw new Error("Payments are not configured yet.");
@@ -59,7 +60,22 @@ export async function createCheckoutSession(
     rentalEnd = toNoonUtc(rentalPeriod!.endDate);
   }
 
-  const itemPriceCents = dailyRental ? listing.priceCents * rentalDays : listing.priceCents;
+  let unitPriceCents = listing.priceCents;
+  let itemQty = 1;
+  if (!dailyRental) {
+    itemQty = Math.min(listing.quantity, Math.max(1, Math.round(Number(options?.quantity || 1))));
+    if (options?.offerId) {
+      const offer = await prisma.listingOffer.findUnique({ where: { id: options.offerId } });
+      if (!offer || offer.listingId !== listing.id || offer.buyerId !== buyer.id) throw new Error("Offer not found.");
+      if (offer.status !== "ACCEPTED") throw new Error("This offer is not available to check out.");
+      if (offer.quantity > listing.quantity) throw new Error("There aren’t that many available anymore.");
+      unitPriceCents = offer.amountCents;
+      itemQty = offer.quantity;
+    }
+    if (itemQty > listing.quantity) throw new Error("There aren’t that many available.");
+  }
+
+  const itemPriceCents = dailyRental ? listing.priceCents * rentalDays : unitPriceCents * itemQty;
   const deliveryFeeCents =
     !housingRental && fulfillment === "LOCAL_DELIVERY" && listing.fulfillment === "LOCAL_DELIVERY" && !listing.freeDelivery
       ? listing.deliveryFeeCents
@@ -114,6 +130,7 @@ export async function createCheckoutSession(
           listingId: listing.id,
           title: listing.title,
           priceCents: itemPriceCents,
+          quantity: dailyRental ? rentalDays : itemQty,
         },
       },
       ledgerEntries: {
@@ -146,10 +163,10 @@ export async function createCheckoutSession(
       customer_email: buyer.email,
       line_items: [
         {
-          quantity: dailyRental ? rentalDays : 1,
+          quantity: dailyRental ? rentalDays : itemQty,
           price_data: {
             currency: "usd",
-            unit_amount: listing.priceCents,
+            unit_amount: dailyRental ? listing.priceCents : unitPriceCents,
             product_data: { name: productName },
           },
         },

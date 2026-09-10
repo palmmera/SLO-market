@@ -3,17 +3,18 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney, stripeStatusLabel } from "@/lib/utils";
-import { ListingStatus } from "@prisma/client";
+import { ListingStatus, OfferStatus } from "@prisma/client";
 import { ActiveListingRow } from "@/components/active-listing-row";
 import { DraftListingRow } from "@/components/draft-listing-row";
 import { ExpiredListingRow } from "@/components/expired-listing-row";
 import { GarageSaleRow } from "@/components/garage-sale-row";
+import { SellerOffers } from "@/components/seller-offers";
 
 export default async function SellerDashboard() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced, garageSales] =
+  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced, garageSales, pendingOffers] =
     await Promise.all([
       prisma.listing.findMany({
         where: { sellerId: userId, status: ListingStatus.ACTIVE, collectionId: null },
@@ -81,6 +82,12 @@ export default async function SellerDashboard() {
         },
         orderBy: { updatedAt: "desc" },
       }),
+      prisma.listingOffer.findMany({
+        where: { sellerId: userId, status: OfferStatus.PENDING },
+        include: { listing: { select: { title: true, slug: true } }, buyer: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+      }),
     ]);
 
   const totalSales = sales._sum.itemPriceCents ?? 0;
@@ -105,6 +112,17 @@ export default async function SellerDashboard() {
       <Link href="/dashboard/food-seller" className="ml-2 mt-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold card-shadow">
         Local Food Seller
       </Link>
+      <SellerOffers
+        offers={pendingOffers.map((o) => ({
+          id: o.id,
+          amountCents: o.amountCents,
+          quantity: o.quantity,
+          createdAt: o.createdAt.toISOString(),
+          listingTitle: o.listing.title,
+          listingSlug: o.listing.slug,
+          buyerName: o.buyer.name,
+        }))}
+      />
       <Section title="Pending Orders">
         {pending.length === 0 && <Empty />}
         {pending.map((o) => (

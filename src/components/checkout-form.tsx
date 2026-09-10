@@ -22,6 +22,8 @@ export function CheckoutForm({
   initialEndDate = "",
   bookedRanges = [],
   depositNote = "",
+  availableQuantity = 1,
+  offerId = "",
 }: {
   listingId: string;
   title: string;
@@ -38,18 +40,23 @@ export function CheckoutForm({
   initialEndDate?: string;
   bookedRanges?: RentalDateRangeValue[];
   depositNote?: string;
+  availableQuantity?: number;
+  offerId?: string;
 }) {
   const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">("PICKUP_ONLY");
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const [rentalStart, setRentalStart] = useState(initialStartDate);
   const [rentalEnd, setRentalEnd] = useState(initialEndDate);
+  const [quantity, setQuantity] = useState(Math.min(availableQuantity, 1));
   const rentalDays = dailyRental && rentalStart && rentalEnd ? rentalDaysInclusive(rentalStart, rentalEnd) : 0;
   const overlap = dailyRental ? overlappingBookedRange(rentalStart, rentalEnd, bookedRanges) : null;
-  const rentalTotal = dailyRental ? rentalDays * itemPriceCents : itemPriceCents;
+  const itemQty = dailyRental || offerId ? availableQuantity : quantity;
+  const rentalTotal = dailyRental ? rentalDays * itemPriceCents : itemPriceCents * (dailyRental ? 1 : itemQty);
   const delivery = fulfillment === "LOCAL_DELIVERY" && canDeliver ? (freeDelivery ? 0 : deliveryFeeCents) : 0;
   const total = rentalTotal + delivery;
   const canPay = payoutsEnabled && (!dailyRental || (rentalDays > 0 && rentalDays <= MAX_DAILY_RENTAL_DAYS && !overlap));
+  const showQty = !dailyRental && !offerId && availableQuantity > 1;
 
   return (
     <div className="space-y-4 rounded-3xl bg-white p-5 card-shadow">
@@ -76,6 +83,28 @@ export function CheckoutForm({
         />
       )}
       <RentalDepositNote note={depositNote} />
+      {offerId && (
+        <p className="rounded-2xl bg-ocean-light p-3 text-sm text-ocean-dark">
+          Paying the accepted offer of {formatMoney(itemPriceCents)}
+          {availableQuantity > 1 ? ` × ${availableQuantity}` : ""}.
+        </p>
+      )}
+      {showQty && (
+        <label className="block text-sm">
+          <span className="font-medium">Quantity</span>
+          <select
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            className="mt-2 w-full rounded-2xl bg-sand px-4 py-3"
+          >
+            {Array.from({ length: availableQuantity }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {!housingRental && (
       <div>
         <p className="mb-2 text-sm font-medium">Fulfillment method</p>
@@ -94,7 +123,7 @@ export function CheckoutForm({
       )}
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between">
-          <dt>{dailyRental ? "Rental" : "Item price"}</dt>
+          <dt>{dailyRental ? "Rental" : showQty || (offerId && availableQuantity > 1) ? "Items" : "Item price"}</dt>
           <dd>{dailyRental && (rentalDays < 1 || overlap) ? "—" : formatMoney(rentalTotal)}</dd>
         </div>
         {!housingRental && (
@@ -121,6 +150,7 @@ export function CheckoutForm({
                 listingId,
                 housingRental ? "PICKUP_ONLY" : fulfillment,
                 dailyRental ? { startDate: rentalStart, endDate: rentalEnd } : null,
+                dailyRental ? undefined : { quantity: itemQty, offerId: offerId || undefined },
               );
               if (url) window.location.href = url;
             } catch (err) {
