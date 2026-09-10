@@ -65,7 +65,7 @@ function BrandMark({ light = false }: { light?: boolean }) {
         className={`font-display text-[1.28rem] tracking-tight sm:text-[1.45rem] ${light ? "text-white" : "text-ocean-dark"}`}
       >
         Slo{" "}
-        <span className={`font-normal italic ${light ? "text-white/90" : "text-ocean"}`}>marketplace</span>
+        <span className={`font-normal italic ${light ? "text-white/90" : "text-ocean"}`}>Marketplace</span>
       </div>
       {!light && (
         <div className="mt-0.5 hidden text-[10px] uppercase tracking-[0.2em] text-muted sm:block">San Luis Obispo County</div>
@@ -83,7 +83,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-sand-dark/80 bg-sand/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-        <Link href="/" className="shrink-0" aria-label="Slo marketplace home">
+        <Link href="/" className="shrink-0" aria-label="Slo Marketplace home">
           <BrandMark />
         </Link>
 
