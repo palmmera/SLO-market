@@ -58,6 +58,22 @@ const links = [
   { href: "/profile", label: "Profile" },
 ];
 
+function BrandMark({ light = false }: { light?: boolean }) {
+  return (
+    <div className="leading-none">
+      <div
+        className={`font-display text-[1.28rem] tracking-tight sm:text-[1.45rem] ${light ? "text-white" : "text-ocean-dark"}`}
+      >
+        Slo{" "}
+        <span className={`font-normal italic ${light ? "text-white/90" : "text-ocean"}`}>marketplace</span>
+      </div>
+      {!light && (
+        <div className="mt-0.5 hidden text-[10px] uppercase tracking-[0.2em] text-muted sm:block">San Luis Obispo County</div>
+      )}
+    </div>
+  );
+}
+
 export function Header() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -67,9 +83,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-sand-dark/80 bg-sand/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-        <Link href="/" className="shrink-0">
-          <div className="font-display text-xl font-semibold tracking-tight text-ocean-dark">SLO MARKET</div>
-          <div className="hidden text-[10px] uppercase tracking-[0.18em] text-muted sm:block">San Luis Obispo County</div>
+        <Link href="/" className="shrink-0" aria-label="Slo marketplace home">
+          <BrandMark />
         </Link>
 
         <form action="/browse" className="hidden flex-1 md:block">
@@ -202,7 +217,7 @@ export function Footer() {
     <footer className="hidden border-t border-sand-dark bg-ocean-dark text-white md:block">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-4">
         <div>
-          <div className="font-display text-2xl">SLO MARKET</div>
+          <BrandMark light />
           <p className="mt-2 text-sm text-white/80">Buy Local. Sell Local. Keep It in SLO.</p>
           <p className="mt-3 text-xs text-white/60">San Luis Obispo&apos;s Local Marketplace</p>
         </div>
