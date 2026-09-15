@@ -39,7 +39,7 @@ export function SearchHero({ defaultQuery = "", compact = false }: { defaultQuer
       {!compact && (
         <div className="mt-5">
           <Link href="/sell" className="inline-flex rounded-full bg-clay px-5 py-3 font-semibold text-white">
-            Sell Something
+            List for Free
           </Link>
         </div>
       )}
