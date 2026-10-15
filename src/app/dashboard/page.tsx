@@ -9,12 +9,19 @@ import { DraftListingRow } from "@/components/draft-listing-row";
 import { ExpiredListingRow } from "@/components/expired-listing-row";
 import { GarageSaleRow } from "@/components/garage-sale-row";
 import { SellerOffers } from "@/components/seller-offers";
+import { SubscribePlanButton } from "@/components/subscribe-plan-button";
+import { getSellerPlanUsage } from "@/lib/seller-plan";
 
-export default async function SellerDashboard() {
+export default async function SellerDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
   const session = await getSession();
+  const sp = await searchParams;
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
-  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced, garageSales, pendingOffers] =
+  const [active, drafts, expired, sold, pending, completed, stripe, sales, enhanced, garageSales, pendingOffers, plan] =
     await Promise.all([
       prisma.listing.findMany({
         where: { sellerId: userId, status: ListingStatus.ACTIVE, collectionId: null },
@@ -88,6 +95,7 @@ export default async function SellerDashboard() {
         orderBy: { createdAt: "desc" },
         take: 40,
       }),
+      getSellerPlanUsage(userId),
     ]);
 
   const totalSales = sales._sum.itemPriceCents ?? 0;
@@ -97,6 +105,27 @@ export default async function SellerDashboard() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <h1 className="font-display text-4xl">Seller dashboard</h1>
+      {sp.plan === "success" && (
+        <p className="mt-4 rounded-2xl bg-ocean-light px-4 py-3 text-sm text-ocean-dark">
+          Seller Plan checkout finished. If the plan doesn’t show yet, refresh in a moment.
+        </p>
+      )}
+      <section className="mt-5 rounded-3xl bg-white p-5 card-shadow">
+        <h2 className="font-display text-2xl">{plan.active ? "Seller Plan" : "Free seller"}</h2>
+        <p className="mt-2 text-sm text-muted">
+          Cash is free for {plan.productLimit} products and {plan.garageLimit} garage sale. You are using {plan.cashProducts} cash
+          product{plan.cashProducts === 1 ? "" : "s"} and {plan.cashGarages} cash garage sale{plan.cashGarages === 1 ? "" : "s"}.
+          More than that is $10 a month. Card and “card or cash” listings are not capped, and card sales stay at 12%.
+        </p>
+        {plan.active && plan.currentPeriodEnd && (
+          <p className="mt-2 text-sm">
+            {plan.cancelAtPeriodEnd ? "Ends" : "Renews"} {plan.currentPeriodEnd.toLocaleDateString()}.
+          </p>
+        )}
+        <div className="mt-4">
+          <SubscribePlanButton active={plan.active} returnPath="/dashboard" />
+        </div>
+      </section>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Total Sales" value={formatMoney(totalSales)} />
         <Stat label="SLO Market Fees" value={formatMoney(fees)} />
@@ -146,6 +175,7 @@ export default async function SellerDashboard() {
                   imageUrl: sale.images[0]?.displayUrl || sale.images[0]?.originalUrl || null,
                   categoryId: sale.listings[0]?.categoryId ?? null,
                   collectionType: sale.type,
+                  paymentMethod: sale.paymentMethod,
                 }}
               />
             ))}
@@ -176,6 +206,7 @@ export default async function SellerDashboard() {
                 expiresAt: l.expiresAt ? l.expiresAt.toISOString() : null,
                 images: l.images,
                 category: l.category,
+                paymentMethod: l.paymentMethod,
               }}
             />
           ))}

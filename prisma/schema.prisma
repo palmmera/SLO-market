@@ -143,6 +143,19 @@ enum ProduceProductType {
   OTHER
 }
 
+enum PaymentMethod {
+  CASH
+  CARD
+  BOTH
+}
+
+enum SellerPlanStatus {
+  INCOMPLETE
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -186,6 +199,7 @@ model User {
   foodSellerProfile     FoodSellerProfile?
   offersMade            ListingOffer[]                 @relation("BuyerOffers")
   offersReceived        ListingOffer[]                 @relation("SellerOffers")
+  sellerSubscription    SellerSubscription?
 
   @@index([email])
   @@index([cityId])
@@ -335,6 +349,7 @@ model Listing {
   deliveryRadiusMiles Int?
   deliveryFeeCents    Int               @default(0)
   freeDelivery        Boolean           @default(false)
+  paymentMethod       PaymentMethod     @default(CARD)
   enhancedDescription Boolean           @default(false)
   extraDetails        Json?
   viewCount           Int               @default(0)
@@ -436,6 +451,7 @@ model Collection {
   cityId              String
   city                City              @relation(fields: [cityId], references: [id])
   fulfillment         FulfillmentMethod @default(PICKUP_ONLY)
+  paymentMethod       PaymentMethod     @default(CARD)
   deliveryRadiusMiles Int?
   deliveryFeeCents    Int               @default(0)
   hideSold            Boolean           @default(false)
@@ -727,6 +743,19 @@ model UserBlock {
   createdAt DateTime @default(now())
 
   @@unique([blockerId, blockedId])
+}
+
+model SellerSubscription {
+  id                   String           @id @default(cuid())
+  userId               String           @unique
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String           @unique
+  stripeSubscriptionId String?          @unique
+  status               SellerPlanStatus @default(INCOMPLETE)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 }
 
 model PlatformSettings {

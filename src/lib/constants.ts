@@ -24,6 +24,15 @@ export function suggestedFirstMessage(sellerName?: string | null) {
 /** How long an active listing stays live before it expires and needs renewal. */
 export const LISTING_DURATION_DAYS = 30;
 
+/** Free cash-only products (not items tagged inside a garage sale). Card and both are not capped. */
+export const FREE_CASH_PRODUCT_LIMIT = 20;
+
+/** Free cash-only garage / yard / room sales. Tagged items inside do not count as products. */
+export const FREE_CASH_GARAGE_SALE_LIMIT = 1;
+
+/** Monthly Seller Plan that removes the cash listing caps. Card commission stays 12%. */
+export const SELLER_PLAN_MONTHLY_CENTS = 1000;
+
 /** Garage / produce photo sales: one tagged photo per corner, buyers swipe between them. */
 export const MAX_COLLECTION_PHOTOS = 4;
 

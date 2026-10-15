@@ -15,6 +15,7 @@ export type ActiveListingRowData = {
   expiresAt?: string | null;
   images: { thumbnailUrl: string | null; url: string }[];
   category?: { slug: string } | null;
+  paymentMethod?: string | null;
 };
 
 function expiryLabel(expiresAt?: string | null) {
@@ -58,7 +59,10 @@ export function ActiveListingRow({ listing }: { listing: ActiveListingRowData })
         <Link href={`/listing/${listing.slug}`} className="block truncate font-semibold hover:underline">
           {listing.title}
         </Link>
-        <p className={`mt-0.5 text-sm font-medium ${free && !rental ? "text-ocean" : "text-muted"}`}>{priceLabel}</p>
+        <p className={`mt-0.5 text-sm font-medium ${free && !rental ? "text-ocean" : "text-muted"}`}>
+          {priceLabel}
+          {listing.paymentMethod === "CASH" ? " · Cash" : listing.paymentMethod === "BOTH" ? " · Card or cash" : ""}
+        </p>
         {expiry && (
           <p className={`mt-0.5 text-xs ${expiry.urgent ? "font-semibold text-clay" : "text-muted"}`}>{expiry.text}</p>
         )}

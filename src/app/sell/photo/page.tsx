@@ -15,7 +15,7 @@ export default async function SellPhotoPage() {
     <div className="mx-auto max-w-xl px-4 py-6">
       <h1 className="font-display text-4xl">Sell from a photo</h1>
       <p className="mt-2 text-muted">
-        Take up to 4 photos of different corners or tables. Tap each item, adjust the box, and add a price.
+        Take up to 4 photos of different corners or tables. Tap each item, adjust the box, and add a price. One cash garage sale is free — tagged items don’t count toward your 20 cash products. Card sales stay at 12%.
       </p>
       <div className="mt-6">
         <PhotoSaleStart cities={cities} categories={categories} defaultCityId={user?.cityId || cities[0]?.id} />

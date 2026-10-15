@@ -1,4 +1,4 @@
-export const LEGAL_LAST_UPDATED = "August 24, 2026";
+export const LEGAL_LAST_UPDATED = "October 15, 2026";
 export const LEGAL_CONTACT_EMAIL = "hello@slomarketplace.com";
 export const LEGAL_ENTITY = "SLO Market";
 
@@ -60,7 +60,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
   {
     title: "7. Prohibited conduct and items",
     paragraphs: [
-      "You may not use the Platform to list prohibited items, post fraudulent or misleading listings, harass or threaten others, discriminate unlawfully, circumvent marketplace fees by moving paid transactions off-platform, scrape or disrupt the Platform, or infringe intellectual property rights.",
+      "You may not use the Platform to list prohibited items, post fraudulent or misleading listings, harass or threaten others, discriminate unlawfully, move a card listing off-platform to avoid marketplace fees, scrape or disrupt the Platform, or infringe intellectual property rights. Cash at a public meetup is allowed only when the listing is marked cash or card-or-cash.",
       "See our Community Safety Guidelines for examples of prohibited items and conduct. We may remove listings, delay or withhold payouts, suspend accounts, or report activity to authorities.",
     ],
   },
@@ -68,8 +68,9 @@ export const TERMS_SECTIONS: LegalSection[] = [
     title: "8. Payments, fees, and Stripe Connect",
     paragraphs: [
       "Basic listings are free. Optional Enhanced Description is a separate paid feature, currently $1 per use.",
-      "Paid marketplace checkout is processed by Stripe through Stripe Connect. Sellers must complete Stripe onboarding to receive payouts for online sales.",
-      "SLO Market collects a 12% platform commission on applicable completed sales through Stripe application fees, unless a different rate is clearly disclosed at checkout.",
+      "Sellers may mark a for-sale listing or garage sale as cash at meetup, card on SLO Market, or both. Cash is free for up to 20 active products and 1 active garage sale. Tagged items inside that garage sale do not count toward the 20. Additional cash products or cash garage sales require the Seller Plan, currently $10 per month. Card listings and listings that accept both are not limited by that plan.",
+      "Paid marketplace checkout is processed by Stripe through Stripe Connect. Sellers must complete Stripe onboarding before buyers can pay by card. Cash listings do not use Stripe.",
+      "SLO Market collects a 12% platform commission on applicable completed card sales through Stripe application fees, unless a different rate is clearly disclosed at checkout. The Seller Plan does not reduce or replace that commission.",
       "Stripe processing fees are handled according to Stripe Connect terms and are generally billed to the seller's connected account.",
       "We are not a bank or money transmitter. Payment timing, holds, chargebacks, and identity verification are subject to Stripe policies and applicable law.",
     ],

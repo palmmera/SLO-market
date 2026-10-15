@@ -32,6 +32,8 @@ export type PhotoSaleRowData = {
 
   collectionType: CollectionType;
 
+  paymentMethod?: string | null;
+
 };
 
 
@@ -103,6 +105,7 @@ export function GarageSaleRow({ sale }: { sale: PhotoSaleRowData }) {
         <p className="mt-0.5 text-sm text-muted">
 
           {typeLabel(sale.collectionType)} · {sale.itemCount} item{sale.itemCount === 1 ? "" : "s"}
+          {sale.paymentMethod === "CASH" ? " · Cash" : sale.paymentMethod === "BOTH" ? " · Card or cash" : sale.paymentMethod === "CARD" && !isProduce ? " · Card" : ""}
 
         </p>
 

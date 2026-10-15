@@ -8,11 +8,13 @@ export function QuantityOfferFields({
   defaultQuantity = 1,
   defaultOffersEnabled = false,
   defaultMinOffer = "",
+  offersAllowed = true,
 }: {
   listingType: string;
   defaultQuantity?: number;
   defaultOffersEnabled?: boolean;
   defaultMinOffer?: string;
+  offersAllowed?: boolean;
 }) {
   const [offersEnabled, setOffersEnabled] = useState(defaultOffersEnabled);
   if (listingType !== "FOR_SALE" && listingType !== "FREE") return null;
@@ -31,7 +33,7 @@ export function QuantityOfferFields({
         />
         <span className="mt-1 block text-xs text-muted">How many of this item you have. Buyers can purchase one or more.</span>
       </label>
-      {listingType === "FOR_SALE" && (
+      {listingType === "FOR_SALE" && offersAllowed && (
         <div className="rounded-2xl bg-sand p-4">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input

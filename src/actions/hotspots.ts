@@ -1,6 +1,6 @@
 "use server";
 
-import { Condition, CollectionType, FulfillmentMethod, ListingStatus, ListingType } from "@prisma/client";
+import { Condition, CollectionType, FulfillmentMethod, ListingStatus, ListingType, PaymentMethod } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { uniqueCollectionSlug, uniqueListingSlug } from "@/lib/slug";
@@ -11,6 +11,7 @@ import { resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
 import { MAX_COLLECTION_PHOTOS } from "@/lib/constants";
 import { tryShareCollectionOnFacebook } from "@/lib/facebook-page";
+import { assertCashGarageAllowed, GARAGE_COLLECTION_TYPES, parsePaymentMethod } from "@/lib/seller-plan";
 
 function photosFromForm(formData: FormData): File[] {
   const listed = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
@@ -35,6 +36,9 @@ export async function createPhotoCollection(formData: FormData) {
   const photos = photosFromForm(formData).slice(0, MAX_COLLECTION_PHOTOS);
   if (!photos.length) throw new Error("Please upload at least one photo.");
   if (type === "PRODUCE_STAND") await assertFoodSellerForProduce(user.id);
+  const isGarage = GARAGE_COLLECTION_TYPES.includes(type);
+  const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"), isGarage);
+  if (paymentMethod === PaymentMethod.CASH) await assertCashGarageAllowed(user.id);
   const city = await prisma.city.findUnique({ where: { id: cityId } });
   if (!city) throw new Error("Choose a city.");
   const saved = await Promise.all(photos.map((photo) => saveListingImage(photo, true)));
@@ -45,6 +49,7 @@ export async function createPhotoCollection(formData: FormData) {
       type,
       sellerId: user.id,
       cityId,
+      paymentMethod: type === "PRODUCE_STAND" ? PaymentMethod.CARD : paymentMethod,
       status: ListingStatus.ACTIVE,
       images: {
         create: saved.map((image, sortOrder) => ({
@@ -124,9 +129,16 @@ export async function saveHotspotItem(input: {
   };
 }) {
   const user = await currentUser();
-  const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
-  if (!stripeAccount || stripeAccount.status !== "PAYOUTS_ENABLED" || !stripeAccount.payoutsEnabled) {
-    return { needsStripeOnboarding: true as const };
+  const collectionPreview = await prisma.collection.findFirst({
+    where: { id: input.collectionId, sellerId: user.id },
+    select: { paymentMethod: true },
+  });
+  const cashSale = collectionPreview?.paymentMethod === PaymentMethod.CASH;
+  if (!cashSale) {
+    const stripeAccount = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+    if (!stripeAccount || stripeAccount.status !== "PAYOUTS_ENABLED" || !stripeAccount.payoutsEnabled) {
+      return { needsStripeOnboarding: true as const };
+    }
   }
 
   const collection = await prisma.collection.findFirst({
@@ -167,6 +179,7 @@ export async function saveHotspotItem(input: {
     deliveryFeeCents: collection.deliveryFeeCents,
     deliveryRadiusMiles: collection.deliveryRadiusMiles,
     freeDelivery: collection.fulfillment === FulfillmentMethod.LOCAL_DELIVERY && collection.deliveryFeeCents === 0,
+    paymentMethod: collection.paymentMethod,
     quantity: 1,
     offersEnabled: false,
     minOfferCents: null,
@@ -281,6 +294,7 @@ export async function updateCollectionFulfillment(
   fulfillment: FulfillmentMethod,
   deliveryFeeCents = 0,
   deliveryRadiusMiles: number | null = null,
+  paymentMethod?: PaymentMethod,
 ) {
   const user = await currentUser();
   const collection = await prisma.collection.findFirst({
@@ -291,15 +305,21 @@ export async function updateCollectionFulfillment(
   const isDelivery = fulfillment === FulfillmentMethod.LOCAL_DELIVERY;
   const feeCents = isDelivery ? Math.max(0, Math.round(deliveryFeeCents)) : 0;
   const radius = isDelivery ? deliveryRadiusMiles : null;
+  const isGarage = GARAGE_COLLECTION_TYPES.includes(collection.type);
+  const nextPayment = isGarage && paymentMethod ? parsePaymentMethod(paymentMethod, true) : collection.paymentMethod;
+  if (nextPayment === PaymentMethod.CASH && collection.paymentMethod !== PaymentMethod.CASH) {
+    await assertCashGarageAllowed(user.id, collection.id);
+  }
 
   await prisma.collection.update({
     where: { id: collection.id },
-    data: { fulfillment, hideSold: false, deliveryFeeCents: feeCents, deliveryRadiusMiles: radius },
+    data: { fulfillment, hideSold: false, deliveryFeeCents: feeCents, deliveryRadiusMiles: radius, paymentMethod: nextPayment },
   });
   await prisma.listing.updateMany({
     where: { collectionId: collection.id, sellerId: user.id },
     data: {
       fulfillment,
+      paymentMethod: nextPayment,
       deliveryFeeCents: feeCents,
       deliveryRadiusMiles: radius,
       freeDelivery: isDelivery && feeCents === 0,

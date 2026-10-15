@@ -15,6 +15,8 @@ import { ProduceProductType } from "@prisma/client";
 import { isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX, sanitizeCustomCategory } from "@/lib/utils";
 import { OtherCategoryField } from "@/components/other-category-field";
 import { QuantityOfferFields } from "@/components/quantity-offer-fields";
+import { PaymentMethodPicker, type PayChoice } from "@/components/payment-method-picker";
+import { SubscribePlanButton } from "@/components/subscribe-plan-button";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -52,6 +54,8 @@ export function SellForm({
   const [serviceCategoryId, setServiceCategoryId] = useState("");
   const [saleCategoryId, setSaleCategoryId] = useState("");
   const [fulfillment, setFulfillment] = useState("PICKUP_ONLY");
+  const [paymentMethod, setPaymentMethod] = useState<PayChoice>("CARD");
+  const [planRequired, setPlanRequired] = useState(false);
   const [enhanced, setEnhanced] = useState(false);
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([]);
   const [error, setError] = useState("");
@@ -62,6 +66,7 @@ export function SellForm({
   const isProduceListing = produceMode || Boolean(selectedParent?.isProduce);
   const isRentalListing = listingType === "RENTAL";
   const isServiceListing = listingType === "SERVICE";
+  const cashPublish = listingType === "FOR_SALE" && !isProduceListing && paymentMethod === "CASH";
   const rentalCategory = categories.find((c) => c.id === rentalCategoryId);
   const isHousingRental = isRentalListing && isHousingRentalSlug(rentalCategory?.slug);
   const showPermitFields = isProduceListing && produceTypeRequiresPermit(produceProductType);
@@ -138,9 +143,12 @@ export function SellForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError("");
+        setPlanRequired(false);
         const form = new FormData(e.currentTarget);
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
+        const cashChoice = listingType === "FOR_SALE" && !isProduceListing;
+        form.set("paymentMethod", cashChoice ? paymentMethod : "CARD");
         form.set("enhanced", enhanced ? "1" : "0");
         if (isRentalListing) {
           if (!rentalCategoryId) {
@@ -170,6 +178,7 @@ export function SellForm({
             const result = await createListing(form);
             if ("error" in result && result.error) {
               setError(result.error);
+              setPlanRequired(Boolean("needsSellerPlan" in result && result.needsSellerPlan));
               return;
             }
             if (!("listingId" in result) || !result.listingId) {
@@ -496,7 +505,10 @@ export function SellForm({
             This item is free
           </label>
         )}
-        <QuantityOfferFields listingType={listingType} />
+        {listingType === "FOR_SALE" && !isProduceListing && (
+          <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+        )}
+        <QuantityOfferFields listingType={listingType} offersAllowed={paymentMethod !== "CASH"} />
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
             {isHousingRental
@@ -644,19 +656,24 @@ export function SellForm({
       )}
 
       {error && <p className="text-sm text-clay">{error}</p>}
+      {planRequired && (
+        <SubscribePlanButton returnPath="/sell" className="w-full rounded-2xl bg-ink py-3 font-semibold text-white" />
+      )}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">
         {pending
-          ? stripeReady
+          ? cashPublish || stripeReady
             ? "Publishing..."
             : "Taking you to Stripe..."
-          : stripeReady
+          : cashPublish || stripeReady
             ? "9. Publish"
             : "9. Finish Stripe to publish"}
       </button>
       <p className="text-center text-xs text-muted">
-        {stripeReady
-          ? "Basic listings are free. Enhanced description is optional and $1."
-          : "Publishing requires a free Stripe account so buyers can pay you through SLO Market."}
+        {cashPublish
+          ? "Cash listings go live without Stripe. Free up to 20 products. Card sales stay at 12%."
+          : stripeReady
+            ? "Basic listings are free. Enhanced description is optional and $1. Card sales are 12%."
+            : "Card listings need a free Stripe account so buyers can pay you. Cash listings do not."}
       </p>
     </form>
   );

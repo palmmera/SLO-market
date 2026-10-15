@@ -12,6 +12,9 @@ import { ServiceTypePicker } from "@/components/service-type-picker";
 import { isHousingRentalSlug, isOtherCategorySlug, isServiceSlug, RENTAL_DEPOSIT_NOTE_MAX, sanitizeCustomCategory } from "@/lib/utils";
 import { OtherCategoryField } from "@/components/other-category-field";
 import { QuantityOfferFields } from "@/components/quantity-offer-fields";
+import { PaymentMethodPicker, type PayChoice } from "@/components/payment-method-picker";
+import { SubscribePlanButton } from "@/components/subscribe-plan-button";
+import { isSellerPlanError } from "@/lib/seller-plan";
 
 type Option = { id: string; name: string; slug: string; parentId?: string | null; isProduce?: boolean; isFree?: boolean; isRental?: boolean; isService?: boolean };
 
@@ -37,6 +40,7 @@ export type EditListingInitial = {
   quantity?: number;
   offersEnabled?: boolean;
   minOfferCents?: number | null;
+  paymentMethod?: string;
 };
 
 export function EditListingForm({
@@ -68,6 +72,10 @@ export function EditListingForm({
   const categoryOptions = children.length ? children : parents.filter((p) => p.id === parentId);
   const [categoryId, setCategoryId] = useState(listing.categoryId);
   const [listingType, setListingType] = useState(listing.listingType);
+  const [paymentMethod, setPaymentMethod] = useState<PayChoice>(
+    listing.paymentMethod === "CASH" || listing.paymentMethod === "BOTH" ? listing.paymentMethod : "CARD",
+  );
+  const [planRequired, setPlanRequired] = useState(false);
   const [fulfillment, setFulfillment] = useState(listing.fulfillment);
   const [existingImages, setExistingImages] = useState(listing.images);
   const [removeImageIds, setRemoveImageIds] = useState<string[]>([]);
@@ -79,6 +87,7 @@ export function EditListingForm({
   const selectedParent = parents.find((p) => p.id === parentId);
   const isRentalListing = listingType === "RENTAL";
   const isServiceListing = listingType === "SERVICE";
+  const cashPublish = listingType === "FOR_SALE" && !selectedParent?.isProduce && paymentMethod === "CASH";
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const isHousingRental = isRentalListing && isHousingRentalSlug(selectedCategory?.slug);
   const showCustomCategory =
@@ -165,9 +174,12 @@ export function EditListingForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError("");
+        setPlanRequired(false);
         const form = new FormData(e.currentTarget);
         form.set("listingType", listingType);
         form.set("fulfillment", fulfillment);
+        const cashChoice = listingType === "FOR_SALE" && !selectedParent?.isProduce;
+        form.set("paymentMethod", cashChoice ? paymentMethod : "CARD");
         form.set("categoryId", categoryId);
         if (showCustomCategory && !sanitizeCustomCategory(form.get("customCategory"))) {
           setError("Describe what the item is.");
@@ -197,7 +209,9 @@ export function EditListingForm({
             router.push(`/listing/${result.slug}`);
             router.refresh();
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Could not save listing.");
+            const message = err instanceof Error ? err.message : "Could not save listing.";
+            setError(message);
+            setPlanRequired(isSellerPlanError(message));
           }
         });
       }}
@@ -456,11 +470,15 @@ export function EditListingForm({
             This item is free
           </label>
         )}
+        {listingType === "FOR_SALE" && !selectedParent?.isProduce && (
+          <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+        )}
         <QuantityOfferFields
           listingType={listingType}
           defaultQuantity={listing.quantity ?? 1}
           defaultOffersEnabled={Boolean(listing.offersEnabled)}
           defaultMinOffer={listing.minOfferCents ? (listing.minOfferCents / 100).toFixed(2) : ""}
+          offersAllowed={paymentMethod !== "CASH"}
         />
         {listingType === "RENTAL" && (
           <p className="mt-3 text-sm text-muted">
@@ -565,12 +583,15 @@ export function EditListingForm({
       )}
 
       {error && <p className="text-sm text-clay">{error}</p>}
+      {planRequired && (
+        <SubscribePlanButton returnPath="/dashboard" className="w-full rounded-2xl bg-ink py-3 font-semibold text-white" />
+      )}
       <button disabled={pending} className="w-full rounded-2xl bg-clay py-4 text-lg font-semibold text-white">
         {pending
-          ? isDraft && !stripeReady
+          ? isDraft && !stripeReady && !cashPublish
             ? "Taking you to Stripe..."
             : "Saving..."
-          : isDraft && !stripeReady
+          : isDraft && !stripeReady && !cashPublish
             ? "Finish Stripe to publish"
             : isDraft
               ? "Publish listing"

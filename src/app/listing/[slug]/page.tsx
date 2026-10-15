@@ -94,7 +94,8 @@ export default async function ListingPage({
     deliveryFeeGoesTo: settings.deliveryFeeGoesTo,
   });
 
-  const canBuy = listing.status === "ACTIVE" && isPayableListingType(listing.listingType) && listing.priceCents > 0;
+  const cashOnly = listing.paymentMethod === "CASH";
+  const canBuy = listing.status === "ACTIVE" && isPayableListingType(listing.listingType) && listing.priceCents > 0 && !cashOnly;
   const isOwner = session?.user?.id === listing.sellerId;
   const acceptedOffer =
     session?.user?.id && listing.status === "ACTIVE"
@@ -176,6 +177,16 @@ export default async function ListingPage({
             </p>
           )}
           {listing.condition && <p className="text-sm">Condition: {conditionLabel(listing.condition)}</p>}
+          {listing.paymentMethod === "CASH" && listing.status === "ACTIVE" && listing.priceCents > 0 && (
+            <p className="rounded-2xl bg-gold/20 p-3 text-sm">
+              Cash at meetup. Message the seller to arrange a public pickup. SLO Market does not process this payment.
+            </p>
+          )}
+          {listing.paymentMethod === "BOTH" && listing.status === "ACTIVE" && listing.priceCents > 0 && (
+            <p className="rounded-2xl bg-sand p-3 text-sm">
+              Pay by card on SLO Market, or message the seller to pay cash at a public meetup.
+            </p>
+          )}
           <p className="rounded-2xl bg-white p-3 text-sm card-shadow">
             {listing.listingType === "SERVICE"
               ? "Local service — message the provider to arrange details, scheduling, and payment."
@@ -184,7 +195,9 @@ export default async function ListingPage({
               : listing.listingType === "RENTAL" && listing.fulfillment === "PICKUP_ONLY"
                 ? "Pickup / return locally — arrange a public meetup after payment. Exact address is not shown."
                 : listing.fulfillment === "PICKUP_ONLY"
-                ? "Pickup Only — arrange a public meetup after purchase. Exact address is not shown."
+                ? cashOnly
+                  ? "Pickup only. Meet in public and pay cash. Exact address is not shown."
+                  : "Pickup Only — arrange a public meetup after purchase. Exact address is not shown."
                 : listing.freeDelivery
                   ? `Free local delivery within ${listing.deliveryRadiusMiles ?? 10} miles`
                   : `Local delivery: ${formatMoney(listing.deliveryFeeCents)} within ${listing.deliveryRadiusMiles ?? 10} miles`}
@@ -208,7 +221,7 @@ export default async function ListingPage({
             dailyRateCents={listing.priceCents}
             bookedRanges={bookedRanges}
           />
-          {acceptedOffer && (
+          {acceptedOffer && !cashOnly && (
             <Link
               href={`/checkout/${listing.id}?offer=${acceptedOffer.id}`}
               className="block rounded-2xl bg-ocean px-4 py-3 text-center text-sm font-semibold text-white"

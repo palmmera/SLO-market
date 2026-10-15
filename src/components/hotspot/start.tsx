@@ -6,6 +6,9 @@ import Link from "next/link";
 import { createPhotoCollection } from "@/actions/hotspots";
 import { MAX_COLLECTION_PHOTOS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
+import { PaymentMethodPicker, type PayChoice } from "@/components/payment-method-picker";
+import { SubscribePlanButton } from "@/components/subscribe-plan-button";
+import { isSellerPlanError } from "@/lib/seller-plan";
 
 type Variant = "garage" | "produce";
 
@@ -27,6 +30,8 @@ export function PhotoSaleStart({
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+  const [planRequired, setPlanRequired] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PayChoice>("CASH");
   const [pending, start] = useTransition();
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const isProduce = variant === "produce";
@@ -79,13 +84,17 @@ export function PhotoSaleStart({
           form.set("categoryId", produceCategoryId);
           form.set("type", "PRODUCE_STAND");
         }
+        setError("");
+        setPlanRequired(false);
         start(async () => {
           try {
             const result = await createPhotoCollection(form);
             const base = isProduce ? `/sell/food/photo/${result.collectionId}` : `/sell/photo/${result.collectionId}`;
             router.push(`${base}?image=${result.imageId}&category=${form.get("categoryId")}`);
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Could not start.");
+            const message = err instanceof Error ? err.message : "Could not start.";
+          setError(message);
+          setPlanRequired(isSellerPlanError(message));
           }
         });
       }}
@@ -158,6 +167,12 @@ export function PhotoSaleStart({
           </option>
         ))}
       </select>
+      {!isProduce && (
+        <>
+          <input type="hidden" name="paymentMethod" value={paymentMethod} />
+          <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+        </>
+      )}
       {!isProduce && categories && (
         <select name="categoryId" className="w-full rounded-2xl bg-sand px-4 py-3">
           {parents.map((c) => (
@@ -168,6 +183,7 @@ export function PhotoSaleStart({
         </select>
       )}
       {error && <p className="text-sm text-clay">{error}</p>}
+      {planRequired && <SubscribePlanButton returnPath="/sell/photo" />}
       <div className="grid gap-2 sm:grid-cols-2">
         <Link
           href={isProduce ? "/sell/food" : "/sell"}

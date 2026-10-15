@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { formatMoney } from "@/lib/utils";
 import { fulfillMarketplaceOrder } from "@/lib/fulfill-order";
+import { syncSellerPlanCheckout, syncSellerSubscription } from "@/lib/seller-plan";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
@@ -37,6 +38,10 @@ export async function POST(req: Request) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.type === "seller_plan") {
+        await syncSellerPlanCheckout(session);
+        break;
+      }
       if (session.metadata?.type === "enhanced_description" && session.metadata.listingId) {
         await prisma.listing.update({
           where: { id: session.metadata.listingId },
@@ -147,6 +152,12 @@ export async function POST(req: Request) {
           });
         }
       }
+      break;
+    }
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      await syncSellerSubscription(event.data.object as Stripe.Subscription);
       break;
     }
     case "transfer.updated":

@@ -15,6 +15,7 @@ export type HotspotViewItem = {
   description: string;
   status: string;
   condition?: string | null;
+  paymentMethod?: "CASH" | "CARD" | "BOTH" | null;
   x: number;
   y: number;
   width: number;
@@ -159,7 +160,8 @@ export function InteractivePhotoViewer({
     e.stopPropagation();
   }
 
-  const canBuy = showBuy && selected && selected.status === "ACTIVE" && selected.priceCents > 0;
+  const cashOnly = selected?.paymentMethod === "CASH";
+  const canBuy = showBuy && selected && selected.status === "ACTIVE" && selected.priceCents > 0 && !cashOnly;
 
   const navArrows =
     multi &&
@@ -323,6 +325,12 @@ export function InteractivePhotoViewer({
                 : formatMoney(selected.priceCents)}
           </div>
           {selected.condition && <p className="mt-2 text-sm text-muted">Condition: {selected.condition}</p>}
+          {selected.paymentMethod === "CASH" && selected.status === "ACTIVE" && (
+            <p className="mt-3 rounded-2xl bg-gold/20 px-3 py-2 text-sm">Cash at meetup. Message the seller to arrange a public pickup.</p>
+          )}
+          {selected.paymentMethod === "BOTH" && selected.status === "ACTIVE" && selected.priceCents > 0 && (
+            <p className="mt-3 rounded-2xl bg-sand px-3 py-2 text-sm">Pay by card here, or message the seller to pay cash at meetup.</p>
+          )}
           {fulfillmentNote && !isUnavailable(selected.status) && (
             <p className="mt-3 rounded-2xl bg-sand px-3 py-2 text-sm">{fulfillmentNote}</p>
           )}

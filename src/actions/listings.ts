@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Condition, FulfillmentMethod, ListingStatus, ListingType, OfferStatus, Prisma } from "@prisma/client";
+import { Condition, FulfillmentMethod, ListingStatus, ListingType, OfferStatus, PaymentMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { uniqueListingSlug } from "@/lib/slug";
@@ -15,6 +15,7 @@ import { LISTING_DURATION_DAYS } from "@/lib/constants";
 import { buildProduceExtraDetails, FOOD_SELLER_REQUIRED_MESSAGE, getActiveFoodSeller, resolveProduceCategoryId } from "@/lib/food-seller";
 import { ProduceProductType } from "@prisma/client";
 import { tryShareListingOnFacebook } from "@/lib/facebook-page";
+import { assertCashProductAllowed, parsePaymentMethod, SELLER_PLAN_PRODUCT_MESSAGE } from "@/lib/seller-plan";
 
 function extraDetailsWithDeposit(
   base: Record<string, unknown> | null | undefined,
@@ -150,6 +151,19 @@ async function createListingInner(formData: FormData) {
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
   const quantity = parseListingQuantity(formData.get("quantity"), listingType);
   const offerSettings = parseOfferSettings(formData, listingType, priceCents);
+  const cashAllowed = listingType === "FOR_SALE" && !isProduce;
+  const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"), cashAllowed);
+  if (paymentMethod === PaymentMethod.CASH) {
+    offerSettings.offersEnabled = false;
+    offerSettings.minOfferCents = null;
+    try {
+      await assertCashProductAllowed(user.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : SELLER_PLAN_PRODUCT_MESSAGE;
+      return { error: message, needsSellerPlan: true as const };
+    }
+  }
+  const publishNow = paymentMethod === PaymentMethod.CASH || stripeReady;
   const slug = await uniqueListingSlug(title, city.name);
   const seoTitle = `${title} in ${city.name} | SLO Market`;
   const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
@@ -165,7 +179,7 @@ async function createListingInner(formData: FormData) {
       quantity,
       offersEnabled: offerSettings.offersEnabled,
       minOfferCents: offerSettings.minOfferCents,
-      status: stripeReady ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
+      status: publishNow ? ListingStatus.ACTIVE : ListingStatus.DRAFT,
       sellerId: user.id,
       categoryId,
       cityId,
@@ -173,12 +187,13 @@ async function createListingInner(formData: FormData) {
       deliveryRadiusMiles: savedFulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
       deliveryFeeCents: savedFulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
       freeDelivery: savedFulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
+      paymentMethod,
       enhancedDescription: false,
       extraDetails: extraDetails ?? undefined,
       seoTitle,
       seoDescription,
-      publishedAt: stripeReady ? new Date() : null,
-      expiresAt: stripeReady ? newExpiry() : null,
+      publishedAt: publishNow ? new Date() : null,
+      expiresAt: publishNow ? newExpiry() : null,
     },
   });
 
@@ -198,7 +213,7 @@ async function createListingInner(formData: FormData) {
     });
   }
 
-  if (!stripeReady) {
+  if (!publishNow) {
     return {
       listingId: listing.id,
       slug: listing.slug,
@@ -329,6 +344,13 @@ export async function updateListing(listingId: string, formData: FormData) {
   const priceCents = listingType === "FREE" ? 0 : Math.round(price * 100);
   const quantity = parseListingQuantity(formData.get("quantity"), listingType);
   const offerSettings = parseOfferSettings(formData, listingType, priceCents);
+  const isProduce = Boolean(category.isProduce || category.parent?.isProduce);
+  const cashAllowed = listingType === "FOR_SALE" && !isProduce && !isRentalCat && !isServiceCat;
+  const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"), cashAllowed);
+  if (paymentMethod === PaymentMethod.CASH) {
+    offerSettings.offersEnabled = false;
+    offerSettings.minOfferCents = null;
+  }
   const priceChanged = priceCents !== existing.priceCents;
   const seoTitle = `${title} in ${city.name} | SLO Market`;
   const seoDescription = description.slice(0, 155) || `${title} listed in ${city.name}, San Luis Obispo County.`;
@@ -342,8 +364,12 @@ export async function updateListing(listingId: string, formData: FormData) {
   const stripeReady =
     Boolean(stripeAccount) && stripeAccount!.status === "PAYOUTS_ENABLED" && Boolean(stripeAccount!.payoutsEnabled);
   const canGoLive = existing.status === ListingStatus.DRAFT || existing.status === ListingStatus.EXPIRED;
-  const shouldPublishDraft = canGoLive && stripeReady;
-  const needsStripeOnboarding = canGoLive && !stripeReady;
+  const shouldPublishDraft = canGoLive && (stripeReady || paymentMethod === PaymentMethod.CASH);
+  const needsStripeOnboarding = canGoLive && paymentMethod !== PaymentMethod.CASH && !stripeReady;
+  const willBeActive = existing.status === ListingStatus.ACTIVE || shouldPublishDraft;
+  if (paymentMethod === PaymentMethod.CASH && willBeActive && !existing.collectionId) {
+    await assertCashProductAllowed(user.id, existing.id);
+  }
 
   const listing = await prisma.listing.update({
     where: { id: listingId },
@@ -362,6 +388,7 @@ export async function updateListing(listingId: string, formData: FormData) {
       deliveryRadiusMiles: savedFulfillment === "LOCAL_DELIVERY" ? deliveryRadiusMiles : null,
       deliveryFeeCents: savedFulfillment === "LOCAL_DELIVERY" && !freeDelivery ? Math.round(deliveryFee * 100) : 0,
       freeDelivery: savedFulfillment === "LOCAL_DELIVERY" && (freeDelivery || deliveryFee === 0),
+      paymentMethod,
       extraDetails: extraDetails ?? Prisma.DbNull,
       seoTitle,
       seoDescription,

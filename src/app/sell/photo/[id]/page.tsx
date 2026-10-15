@@ -50,7 +50,7 @@ export default async function PhotoEditorPage({
       <p className="mb-4 text-sm text-muted">
         Pinch or use zoom. Tap an item. Drag corners to fit the box. Use the thumbnails to switch photos.
       </p>
-      {!stripeReady && (
+      {collection.paymentMethod !== "CASH" && !stripeReady && (
         <div className="mb-4 rounded-2xl bg-gold/20 p-4 text-sm">
           You can mark items on the photo now. When you save an item, you’ll finish connecting Stripe so buyers can pay
           you.{" "}
@@ -71,6 +71,7 @@ export default async function PhotoEditorPage({
         categoryId={categoryId}
         imageUrl={image.originalUrl}
         initialFulfillment={collection.fulfillment}
+        initialPaymentMethod={collection.paymentMethod === "CASH" || collection.paymentMethod === "BOTH" ? collection.paymentMethod : "CARD"}
         initialDeliveryFeeCents={collection.deliveryFeeCents}
         initialDeliveryRadiusMiles={collection.deliveryRadiusMiles}
         initialItems={image.hotspots.map((h) => ({

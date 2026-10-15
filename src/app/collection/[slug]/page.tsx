@@ -65,12 +65,20 @@ export default async function CollectionPage({
   const isProduceStand = collection.type === "PRODUCE_STAND";
   const editBase = isProduceStand ? `/sell/food/photo/${collection.id}` : `/sell/photo/${collection.id}`;
 
+  const paymentNote =
+    collection.paymentMethod === "CASH"
+      ? "Cash at meetup — message the seller. SLO Market does not take this payment."
+      : collection.paymentMethod === "BOTH"
+        ? "Pay by card on SLO Market, or cash at a public meetup."
+        : "Pay by card on SLO Market.";
   const fulfillmentNote =
     collection.fulfillment === "LOCAL_DELIVERY"
       ? collection.deliveryFeeCents === 0
-        ? `Free local delivery${collection.deliveryRadiusMiles ? ` within ${collection.deliveryRadiusMiles} miles` : ""} — or arrange pickup with the seller.`
-        : `Local delivery ${formatMoney(collection.deliveryFeeCents)}${collection.deliveryRadiusMiles ? ` within ${collection.deliveryRadiusMiles} miles` : ""} — or arrange pickup with the seller.`
-      : "Pickup only — arrange a public meetup after purchase. Exact address is not shown.";
+        ? `Free local delivery${collection.deliveryRadiusMiles ? ` within ${collection.deliveryRadiusMiles} miles` : ""}. ${paymentNote}`
+        : `Local delivery ${formatMoney(collection.deliveryFeeCents)}${collection.deliveryRadiusMiles ? ` within ${collection.deliveryRadiusMiles} miles` : ""}. ${paymentNote}`
+      : collection.paymentMethod === "CASH"
+        ? "Pickup only. Cash at a public meetup — exact address is not shown."
+        : `Pickup only — arrange a public meetup. ${paymentNote} Exact address is not shown.`;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -109,6 +117,7 @@ export default async function CollectionPage({
                 description: h.listing.description,
                 status: h.listing.status,
                 condition: h.listing.condition ? conditionLabel(h.listing.condition) : null,
+                paymentMethod: h.listing.paymentMethod,
                 x: h.x,
                 y: h.y,
                 width: h.width,

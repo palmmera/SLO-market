@@ -122,6 +122,7 @@ export default async function EditListingPage({
             quantity: listing.quantity,
             offersEnabled: listing.offersEnabled,
             minOfferCents: listing.minOfferCents,
+            paymentMethod: listing.paymentMethod,
             images: listing.images.map((img) => ({
               id: img.id,
               url: img.url,

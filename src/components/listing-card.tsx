@@ -13,6 +13,7 @@ export type ListingCardData = {
   freeDelivery?: boolean;
   isFeatured?: boolean;
   category?: { slug: string } | null;
+  paymentMethod?: string | null;
 };
 
 export type CollectionCardData = {
@@ -23,6 +24,7 @@ export type CollectionCardData = {
   itemCount: number;
   lowestPriceCents: number | null;
   imageUrl: string | null;
+  paymentMethod?: string | null;
 };
 
 export function ListingCard({ listing }: { listing: ListingCardData }) {
@@ -50,6 +52,8 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
             </span>
           )}
           {service && <span className="rounded-full bg-ocean/90 px-2.5 py-1 text-[11px] font-semibold text-white">Service</span>}
+          {listing.paymentMethod === "CASH" && <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink">Cash</span>}
+          {listing.paymentMethod === "BOTH" && <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink">Card or cash</span>}
         </div>
       </div>
       <div className="p-3.5">
@@ -105,7 +109,13 @@ export function CollectionCard({ collection }: { collection: CollectionCardData 
           <div className="shrink-0 text-sm font-bold text-ink">{priceLabel}</div>
         </div>
         <p className="mt-1 text-xs text-muted">{formatCityCounty(collection.city.name)}</p>
-        <p className="mt-1 text-[11px] text-ocean">Tap items in the photo to buy</p>
+        <p className="mt-1 text-[11px] text-ocean">
+          {collection.paymentMethod === "CASH"
+            ? "Cash at meetup — tap an item to message"
+            : collection.paymentMethod === "BOTH"
+              ? "Tap an item to pay by card or cash"
+              : "Tap items in the photo to buy"}
+        </p>
       </div>
     </Link>
   );

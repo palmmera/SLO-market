@@ -21,8 +21,9 @@ export default async function SellPage() {
     <div className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="font-display text-4xl">Sell Something</h1>
       <p className="mt-2 text-muted">
-        Create a free listing in a few minutes. No monthly seller fees—SLO Market takes 12% only when an item sells. Your
-        city is shown publicly, not your address.
+        Create a listing in a few minutes. Cash is free for up to 20 products and 1 garage sale. More cash listings are $10
+        a month. Card sales stay at 12% only when an item sells, with no listing cap. Your city is shown publicly, not
+        your address.
       </p>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <a href="#sell-form" className="rounded-2xl bg-ocean px-4 py-3 text-center font-semibold text-white hover:bg-ocean-dark transition-colors">
@@ -37,7 +38,7 @@ export default async function SellPage() {
       </div>
       {!stripeReady && (
         <div className="mt-4 rounded-2xl bg-gold/20 p-4 text-sm">
-          Fill in your listing below. When you publish, you’ll connect Stripe so buyers can pay you through SLO Market.{" "}
+          Cash listings publish without Stripe. Card listings connect Stripe when you publish so buyers can pay you through SLO Market.{" "}
           <Link href="/dashboard/stripe" className="font-semibold text-ocean">
             Manage Stripe
           </Link>

@@ -10,6 +10,11 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
       "Browsing and creating an account are free. Listing fees or payment processing fees may apply depending on how you sell. Check the sell flow for current options.",
   },
   {
+    question: "Can I take cash instead of a card?",
+    answer:
+      "Yes. On a for-sale listing or a garage sale, choose Cash at meetup, Card on SLO Market, or both. Cash is free for 20 products and 1 garage sale. Items tagged inside that garage sale do not count toward the 20. More cash listings need the $10/month Seller Plan. Card and “card or cash” listings are not capped. Card payments still include the 12% commission.",
+  },
+  {
     question: "How do I sell something?",
     answer:
       "Sign in, go to Sell Something, add photos and details, choose a category and city, then publish. Keep your listing accurate and follow our prohibited items and food policies.",
@@ -17,7 +22,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "How do payments work?",
     answer:
-      "Paid checkout on SLO Market is processed securely through Stripe. Your card details go to Stripe — we never store full credit card numbers. Sellers connect a Stripe account to receive payouts for online sales. Always complete payment through official marketplace checkout; don’t send money outside the platform for paid listings.",
+      "Card checkout on SLO Market is processed securely through Stripe. Your card details go to Stripe — we never store full credit card numbers. Sellers connect a Stripe account to receive payouts for card sales. SLO Market keeps a 12% commission on those sales. Listings marked cash are paid at a public meetup and are not charged that commission. Don’t move a card listing off the platform to avoid the fee.",
   },
   {
     question: "Where should I meet a buyer or seller?",

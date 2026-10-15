@@ -20,6 +20,9 @@ export default async function CheckoutPage({
     include: { seller: { include: { stripeAccount: true } }, category: true },
   });
   if (!listing || listing.status !== ListingStatus.ACTIVE) notFound();
+  if (listing.paymentMethod === "CASH") {
+    redirect(`/listing/${listing.slug}`);
+  }
   const sp = await searchParams;
   const housingRental = isHousingRentalSlug(listing.category.slug);
   const dailyRental = isDailyRentalListing(listing.listingType, listing.category.slug);

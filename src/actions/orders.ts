@@ -42,6 +42,9 @@ export async function createCheckoutSession(
   if (!["FOR_SALE", "RENTAL"].includes(listing.listingType) || listing.priceCents <= 0) {
     throw new Error("This listing does not require online payment.");
   }
+  if (listing.paymentMethod === "CASH") {
+    throw new Error("This seller accepts cash at meetup. Message them from the listing to arrange pickup.");
+  }
   const connect = listing.seller.stripeAccount;
   if (!connect || connect.status !== "PAYOUTS_ENABLED" || !connect.payoutsEnabled) {
     throw new Error("This seller has not finished Stripe onboarding, so marketplace payments are not enabled yet.");

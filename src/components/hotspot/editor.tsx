@@ -8,7 +8,9 @@ import { HOTSPOT_CONDITIONS, MAX_COLLECTION_PHOTOS } from "@/lib/constants";
 import { PRODUCE_PRODUCT_TYPES, produceTypeRequiresPermit } from "@/lib/food-seller";
 import { compressImage } from "@/lib/image-compress";
 import { formatMoney } from "@/lib/utils";
-import { FulfillmentMethod, ProduceProductType } from "@prisma/client";
+import { FulfillmentMethod, PaymentMethod, ProduceProductType } from "@prisma/client";
+import { PaymentMethodPicker, type PayChoice } from "@/components/payment-method-picker";
+import { isSellerPlanError } from "@/lib/seller-plan";
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -40,6 +42,7 @@ export function HotspotEditor({
   initialFulfillment = "PICKUP_ONLY",
   initialDeliveryFeeCents = 0,
   initialDeliveryRadiusMiles = null,
+  initialPaymentMethod = "CARD",
 }: {
   collectionId: string;
   collectionSlug: string;
@@ -53,6 +56,7 @@ export function HotspotEditor({
   initialFulfillment?: "PICKUP_ONLY" | "LOCAL_DELIVERY";
   initialDeliveryFeeCents?: number;
   initialDeliveryRadiusMiles?: number | null;
+  initialPaymentMethod?: PayChoice;
 }) {
   const router = useRouter();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -73,6 +77,7 @@ export function HotspotEditor({
   const [draftTitle, setDraftTitle] = useState("");
   const [draftKey, setDraftKey] = useState(0);
   const [fulfillment, setFulfillment] = useState<"PICKUP_ONLY" | "LOCAL_DELIVERY">(initialFulfillment);
+  const [paymentMethod, setPaymentMethod] = useState<PayChoice>(initialPaymentMethod);
   const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFeeCents ? String(initialDeliveryFeeCents / 100) : "");
   const [deliveryRadius, setDeliveryRadius] = useState(initialDeliveryRadiusMiles ? String(initialDeliveryRadiusMiles) : "");
   const [savingFulfillment, setSavingFulfillment] = useState(false);
@@ -135,10 +140,13 @@ export function HotspotEditor({
         fulfillment as FulfillmentMethod,
         fulfillment === "LOCAL_DELIVERY" ? Math.round(Number(deliveryFee || 0) * 100) : 0,
         fulfillment === "LOCAL_DELIVERY" && deliveryRadius ? Math.round(Number(deliveryRadius)) : null,
+        isProduce ? PaymentMethod.CARD : (paymentMethod as PaymentMethod),
       );
       setFulfillmentSaved(true);
-    } catch {
-      alert("Could not save pickup / delivery. Please try again.");
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save pickup / delivery. Please try again.";
+      alert(isSellerPlanError(message) ? message : "Could not save pickup / delivery. Please try again.");
     } finally {
       setSavingFulfillment(false);
     }
@@ -274,6 +282,7 @@ export function HotspotEditor({
       <div className="space-y-3 rounded-3xl bg-white p-4 card-shadow">
         <div className="text-sm font-semibold">How buyers get these items</div>
         <p className="text-xs text-muted">Applies to every item in this {isProduce ? "produce stand" : "sale"}.</p>
+        {!isProduce && <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
