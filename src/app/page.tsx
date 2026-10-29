@@ -118,12 +118,17 @@ export default async function HomePage() {
       <section className="overflow-hidden rounded-[28px] bg-clay px-6 py-10 text-white md:px-10">
         <h2 className="font-display text-3xl md:text-5xl">Got something to sell?</h2>
         <p className="mt-2 max-w-lg text-white/90">Basic listings are free. Upload photos, add a price, choose pickup or local delivery, and publish in a few minutes.</p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/sell" className="rounded-full bg-white px-5 py-3 font-semibold text-ink">
-            Sell Something
-          </Link>
-          <Link href="/sell/food" className="rounded-full border border-white/40 px-5 py-3 font-semibold">
-            Sell local food
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-3">
+            <Link href="/sell" className="rounded-full bg-white px-5 py-3 font-semibold text-ink">
+              Sell Something
+            </Link>
+            <Link href="/sell/food" className="rounded-full border border-white/40 px-5 py-3 font-semibold">
+              Sell local food
+            </Link>
+          </div>
+          <Link href="/sell/photo" className="rounded-full border border-white/50 px-4 py-2 text-sm font-semibold">
+            Sell live
           </Link>
         </div>
       </section>

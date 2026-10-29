@@ -66,7 +66,7 @@ function LoginFormInner({ googleEnabled }: { googleEnabled: boolean }) {
       </form>
       <p className="text-center text-sm text-muted">
         New to SLO Market?{" "}
-        <Link href="/register" className="font-semibold text-ocean">
+        <Link href={callbackUrl === "/" ? "/register" : `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="font-semibold text-ocean">
           Create an account
         </Link>
       </p>

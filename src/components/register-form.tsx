@@ -3,9 +3,25 @@
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
+
+function safeCallback(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  return value;
+}
 
 export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
+  return (
+    <Suspense>
+      <RegisterFormInner googleEnabled={googleEnabled} />
+    </Suspense>
+  );
+}
+
+function RegisterFormInner({ googleEnabled }: { googleEnabled: boolean }) {
+  const params = useSearchParams();
+  const callbackUrl = safeCallback(params.get("callbackUrl"));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +40,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
     await signIn("credentials", {
       email: String(form.get("email")),
       password: String(form.get("password")),
-      callbackUrl: "/",
+      callbackUrl,
     });
   }
 
@@ -32,7 +48,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
     <div className="mx-auto mt-6 max-w-md space-y-4 rounded-3xl bg-white p-6 card-shadow">
       {googleEnabled && (
         <>
-          <GoogleAuthButton label="Create account with Google" />
+          <GoogleAuthButton callbackUrl={callbackUrl} label="Create account with Google" />
           <p className="text-center text-xs text-muted">
             By continuing with Google, you agree to our{" "}
             <Link href="/terms" className="font-semibold text-ocean">
@@ -75,7 +91,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
       </form>
       <p className="text-center text-sm text-muted">
         Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-ocean">
+        <Link href={callbackUrl === "/" ? "/login" : `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="font-semibold text-ocean">
           Sign in
         </Link>
       </p>

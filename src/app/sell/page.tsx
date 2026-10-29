@@ -30,7 +30,7 @@ export default async function SellPage() {
           List an item
         </a>
         <Link href="/sell/photo" className="rounded-2xl bg-white px-4 py-3 text-center font-semibold card-shadow hover:bg-sand transition-colors">
-          Garage sale photo
+          Garage sale
         </Link>
         <Link href="/sell/food" className="rounded-2xl bg-white px-4 py-3 text-center font-semibold card-shadow hover:bg-sand transition-colors">
           Local food &amp; produce
