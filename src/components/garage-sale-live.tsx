@@ -6,14 +6,11 @@ import { garageSaleLiveNow, getCollectionLiveMessages, messageGarageSale, setGar
 import { LiveMark } from "@/components/listing-card";
 import { startVoiceUpload } from "@/lib/live-voice";
 
-const VISIBLE_ROWS = 3;
-
 export function GarageSaleLive({
   collectionId,
   collectionSlug,
   isOwner,
   signedIn,
-  listings,
 }: {
   collectionId: string;
   collectionSlug: string;
@@ -29,20 +26,15 @@ export function GarageSaleLive({
   const [cameraError, setCameraError] = useState("");
   const [messages, setMessages] = useState<LiveFeedMessage[]>([]);
   const [draft, setDraft] = useState("");
-  const [listingId, setListingId] = useState("");
   const [sendError, setSendError] = useState("");
   const [publicLive, setPublicLive] = useState(false);
   const [remoteOn, setRemoteOn] = useState(false);
   const [remoteFrame, setRemoteFrame] = useState("");
   const [hearing, setHearing] = useState(false);
-  const [talking, setTalking] = useState(false);
-  const [voiceError, setVoiceError] = useState("");
   const [pending, start] = useTransition();
   const playCtx = useRef<AudioContext | null>(null);
   const playAt = useRef(0);
   const voiceStop = useRef<(() => void) | null>(null);
-  const talkStop = useRef<(() => void) | null>(null);
-  const talkStream = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,7 +201,16 @@ export function GarageSaleLive({
   }
 
   useEffect(() => {
-    const role = isOwner ? (live ? "buyer" : null) : hearing ? "seller" : null;
+    if (isOwner || !(publicLive || remoteOn)) return;
+    setHearing(true);
+    unlockAudio();
+    const resume = () => unlockAudio();
+    window.addEventListener("pointerdown", resume);
+    return () => window.removeEventListener("pointerdown", resume);
+  }, [isOwner, publicLive, remoteOn]);
+
+  useEffect(() => {
+    const role = !isOwner && hearing ? "seller" : null;
     if (!role) return;
     const after = { current: Date.now() };
     let stopped = false;
@@ -246,8 +247,6 @@ export function GarageSaleLive({
   useEffect(() => {
     return () => {
       voiceStop.current?.();
-      talkStop.current?.();
-      talkStream.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
@@ -285,36 +284,6 @@ export function GarageSaleLive({
     }
   }
 
-  async function beginTalk() {
-    if (talkStream.current) return;
-    setVoiceError("");
-    unlockAudio();
-    setHearing(true);
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setVoiceError("This browser can’t use the microphone.");
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
-        video: false,
-      });
-      talkStream.current = stream;
-      talkStop.current = startVoiceUpload(unlockAudio(), stream, `/api/live/${collectionId}/audio?role=buyer`);
-      setTalking(true);
-    } catch {
-      setVoiceError("Allow the microphone to talk to the seller.");
-    }
-  }
-
-  function endTalk() {
-    talkStop.current?.();
-    talkStop.current = null;
-    talkStream.current?.getTracks().forEach((track) => track.stop());
-    talkStream.current = null;
-    setTalking(false);
-  }
-
   function stopLive() {
     voiceStop.current?.();
     voiceStop.current = null;
@@ -330,134 +299,78 @@ export function GarageSaleLive({
     stickToNewest.current = el.scrollTop < 12;
   }
 
-  const feed = (
-    <div className={live ? "rounded-2xl bg-black/55 p-2 text-white backdrop-blur-sm" : "rounded-3xl bg-white p-3 card-shadow"}>
-      <div className="mb-1 flex items-center justify-between gap-2 px-1">
-        <p className={`flex items-center gap-1.5 text-xs font-semibold ${live ? "text-white/80" : "text-muted"}`}>
+  const showingLive = publicLive || remoteOn || (isOwner && live);
+  const onVideo = live || showRemote;
+  const ink = { textShadow: "0 1px 6px rgba(0,0,0,0.9)" };
+
+  const chatOnVideo = onVideo ? (
+    <div className="pointer-events-none absolute bottom-4 left-4 z-10 w-[min(100%-2rem,22rem)]">
+      <div className="pointer-events-auto">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-white" style={ink}>
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2563eb] opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-[#2563eb]" />
           </span>
           Chat
         </p>
-        {messages.length > VISIBLE_ROWS && (
-          <p className={`text-[11px] ${live ? "text-white/70" : "text-muted"}`}>Scroll for older</p>
+        <div ref={scrollerRef} onScroll={onScroll} className="mt-1 max-h-[6.75rem] space-y-0.5 overflow-y-auto">
+          {messages.map((message) => (
+            <p key={message.id} className="truncate text-sm text-white" style={ink}>
+              <span className="font-semibold">{message.senderName}</span>
+              {message.listingTitle ? <span className="text-white/80"> · {message.listingTitle}</span> : null}
+              <span> — {message.body}</span>
+            </p>
+          ))}
+        </div>
+        {!isOwner && (
+          <form
+            className="mt-2 flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 shadow-lg backdrop-blur-md"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const text = draft.trim();
+              if (!text || !signedIn) return;
+              setSendError("");
+              start(async () => {
+                try {
+                  await messageGarageSale(collectionId, text);
+                  setDraft("");
+                  stickToNewest.current = true;
+                  const next = await getCollectionLiveMessages(collectionId);
+                  setMessages(next);
+                } catch (err) {
+                  setSendError(err instanceof Error ? err.message : "Could not send.");
+                }
+              });
+            }}
+          >
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Ask a question"
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/75"
+            />
+            {signedIn ? (
+              <button disabled={pending || !draft.trim()} className="text-sm font-semibold text-white disabled:opacity-40">
+                Send
+              </button>
+            ) : (
+              <Link href={`/login?callbackUrl=/collection/${collectionSlug}`} className="text-sm font-semibold text-white">
+                Sign in
+              </Link>
+            )}
+          </form>
         )}
-      </div>
-        <div ref={scrollerRef} onScroll={onScroll} className="max-h-[6.75rem] space-y-1 overflow-y-auto pr-1">
-        {messages.length === 0 && (
-          <p className={`px-1 py-2 text-sm ${live ? "text-white/80" : "text-muted"}`}>
-            Buyer messages show here, three at a time.
+        {sendError && (
+          <p className="mt-1 text-xs text-white" style={ink}>
+            {sendError}
           </p>
         )}
-        {messages.map((message) => (
-          <div key={message.id} className={`truncate rounded-xl px-3 py-1.5 text-sm ${live ? "bg-white/10" : "bg-sand"}`}>
-            <span className="font-semibold">{message.senderName}</span>
-            {message.listingTitle ? (
-              <span className={live ? "text-white/70" : "text-muted"}> · {message.listingTitle}</span>
-            ) : null}
-            <span className={live ? "text-white/90" : ""}> — {message.body}</span>
-          </div>
-        ))}
       </div>
     </div>
-  );
-
-  const showingLive = publicLive || remoteOn || (isOwner && live);
-
-  const composer = (
-    <form
-      className="rounded-3xl bg-white p-3 card-shadow"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const text = draft.trim();
-        if (!text) return;
-        if (!signedIn) return;
-        setSendError("");
-        start(async () => {
-          try {
-            await messageGarageSale(collectionId, text, listingId || undefined);
-            setDraft("");
-            stickToNewest.current = true;
-            const next = await getCollectionLiveMessages(collectionId);
-            setMessages(next);
-          } catch (err) {
-            setSendError(err instanceof Error ? err.message : "Could not send.");
-          }
-        });
-      }}
-    >
-      <label htmlFor="sale-message" className="mb-2 block text-sm font-semibold">
-        Message the seller
-      </label>
-      <div className="flex gap-2">
-        {listings.length > 0 && (
-          <select
-            value={listingId}
-            onChange={(e) => setListingId(e.target.value)}
-            aria-label="What this message is about"
-            className="max-w-[40%] rounded-xl bg-sand px-2 py-3 text-sm text-ink"
-          >
-            <option value="">This sale</option>
-            {listings.map((listing) => (
-              <option key={listing.id} value={listing.id}>
-                {listing.title}
-              </option>
-            ))}
-          </select>
-        )}
-        <input
-          id="sale-message"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Type a message"
-          className="min-w-0 flex-1 rounded-xl bg-sand px-3 py-3 text-sm text-ink"
-        />
-        {signedIn ? (
-          <button disabled={pending || !draft.trim()} className="rounded-xl bg-ocean px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
-            Send
-          </button>
-        ) : (
-          <Link href={`/login?callbackUrl=/collection/${collectionSlug}`} className="rounded-xl bg-ocean px-4 py-3 text-sm font-semibold text-white">
-            Sign in
-          </Link>
-        )}
-      </div>
-      {sendError && <p className="mt-2 text-xs text-clay">{sendError}</p>}
-      {!isOwner && showingLive && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              unlockAudio();
-              setHearing(true);
-            }}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${hearing ? "bg-ocean text-white" : "bg-sand text-ink"}`}
-          >
-            {hearing ? "Listening" : "Hear the seller"}
-          </button>
-          <button
-            type="button"
-            onContextMenu={(e) => e.preventDefault()}
-            onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              void beginTalk();
-            }}
-            onPointerUp={endTalk}
-            onPointerCancel={endTalk}
-            className={`touch-none rounded-full px-4 py-2 text-sm font-semibold text-white ${talking ? "bg-clay" : "bg-ink"}`}
-          >
-            {talking ? "Talking…" : "Hold to talk"}
-          </button>
-        </div>
-      )}
-      {voiceError && <p className="mt-2 text-xs text-clay">{voiceError}</p>}
-    </form>
-  );
+  ) : null;
 
   return (
     <div className="mt-4 space-y-3">
-      {composer}
       {showingLive && (
         <div>
           <LiveMark />
@@ -475,7 +388,7 @@ export function GarageSaleLive({
             </button>
           )}
           <p className="text-xs text-muted">
-            People on a phone or computer can see and hear you while this page stays open. Their voice plays here when they hold Talk.
+            People on a phone or computer can see and hear you while this page stays open. They type questions on the video.
           </p>
         </div>
       )}
@@ -500,7 +413,7 @@ export function GarageSaleLive({
             </div>
           )
         )}
-        <div className={live || showRemote ? "absolute inset-x-3 bottom-3" : ""}>{feed}</div>
+        {chatOnVideo}
       </div>
     </div>
   );
