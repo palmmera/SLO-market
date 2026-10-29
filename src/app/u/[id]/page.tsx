@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { ListingGrid } from "@/components/listing-card";
 import { initials } from "@/lib/utils";
+import { garageSaleIsLive } from "@/lib/garage-live";
 import { ListingStatus } from "@prisma/client";
 import { reportContent } from "@/actions/listings";
 import { FoodSellerBadge } from "@/components/food-seller-badge";
@@ -46,6 +47,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
     imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
     paymentMethod: c.paymentMethod,
+    isLive: garageSaleIsLive(c.liveAt),
   }));
 
   return (

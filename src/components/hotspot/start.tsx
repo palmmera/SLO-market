@@ -171,6 +171,11 @@ export function PhotoSaleStart({
         <>
           <input type="hidden" name="paymentMethod" value={paymentMethod} />
           <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+          {paymentMethod === "CASH" && (
+            <p className="text-xs text-muted">
+              Add a price on each item in the photo. A cash-only sale can skip prices only while you are live.
+            </p>
+          )}
         </>
       )}
       {!isProduce && categories && (

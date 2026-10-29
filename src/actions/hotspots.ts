@@ -12,6 +12,7 @@ import { ProduceProductType } from "@prisma/client";
 import { MAX_COLLECTION_PHOTOS } from "@/lib/constants";
 import { tryShareCollectionOnFacebook } from "@/lib/facebook-page";
 import { assertCashGarageAllowed, GARAGE_COLLECTION_TYPES, parsePaymentMethod } from "@/lib/seller-plan";
+import { garageSaleIsLive } from "@/lib/garage-live";
 
 function photosFromForm(formData: FormData): File[] {
   const listed = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
@@ -165,10 +166,15 @@ export async function saveHotspotItem(input: {
         }
       : undefined;
 
+  const liveCashOnly = collection.paymentMethod === PaymentMethod.CASH && garageSaleIsLive(collection.liveAt);
+  const unpricedCash = liveCashOnly && !(input.price > 0);
+  if (!isProduceStand && !(input.price > 0) && !unpricedCash) {
+    throw new Error("Add a price on the photo. You can skip prices only while a cash-only sale is live.");
+  }
   const data = {
     title: input.title,
-    description: input.description || "See photo.",
-    listingType: input.price > 0 ? ListingType.FOR_SALE : ListingType.FREE,
+    description: input.description || (unpricedCash ? "Cash at pickup." : "See photo."),
+    listingType: input.price > 0 || unpricedCash ? ListingType.FOR_SALE : ListingType.FREE,
     condition: isProduceStand ? null : input.condition,
     priceCents: Math.round(input.price * 100),
     status: ListingStatus.ACTIVE,
@@ -214,7 +220,7 @@ export async function saveHotspotItem(input: {
       y: input.y,
       width: input.width,
       height: input.height,
-      markerLabel: input.price > 0 ? `$${Math.round(input.price)}` : "FREE",
+      markerLabel: input.price > 0 ? `$${Math.round(input.price)}` : unpricedCash ? "Cash" : "FREE",
       brand: input.extra?.brand,
       model: input.extra?.model,
       measurements: input.extra?.measurements,
@@ -231,7 +237,7 @@ export async function saveHotspotItem(input: {
       y: input.y,
       width: input.width,
       height: input.height,
-      markerLabel: input.price > 0 ? `$${Math.round(input.price)}` : "FREE",
+      markerLabel: input.price > 0 ? `$${Math.round(input.price)}` : unpricedCash ? "Cash" : "FREE",
       brand: input.extra?.brand,
       model: input.extra?.model,
       measurements: input.extra?.measurements,

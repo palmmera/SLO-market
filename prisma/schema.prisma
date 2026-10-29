@@ -455,6 +455,7 @@ model Collection {
   deliveryRadiusMiles Int?
   deliveryFeeCents    Int               @default(0)
   hideSold            Boolean           @default(false)
+  liveAt              DateTime?
   status              ListingStatus     @default(DRAFT)
   facebookPostId      String?
   createdAt           DateTime          @default(now())

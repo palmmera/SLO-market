@@ -1,6 +1,18 @@
 import Link from "next/link";
 import { formatMoney, formatCityCounty, isDailyRentalListing, isHousingRentalSlug } from "@/lib/utils";
 
+export function LiveMark() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-ink shadow">
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#e11d48] opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#e11d48]" />
+      </span>
+      Live
+    </span>
+  );
+}
+
 export type ListingCardData = {
   id: string;
   slug: string;
@@ -25,6 +37,7 @@ export type CollectionCardData = {
   lowestPriceCents: number | null;
   imageUrl: string | null;
   paymentMethod?: string | null;
+  isLive?: boolean;
 };
 
 export function ListingCard({ listing }: { listing: ListingCardData }) {
@@ -76,9 +89,13 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
 export function CollectionCard({ collection }: { collection: CollectionCardData }) {
   const priceLabel =
     collection.itemCount === 0
-      ? "No items"
+      ? collection.paymentMethod === "CASH"
+        ? "Cash at pickup"
+        : "Photos"
       : collection.lowestPriceCents === 0
-        ? "Items from FREE"
+        ? collection.paymentMethod === "CASH"
+          ? "Cash at pickup"
+          : "Items from FREE"
         : collection.lowestPriceCents != null
           ? `From ${formatMoney(collection.lowestPriceCents)}`
           : `${collection.itemCount} items`;
@@ -97,7 +114,8 @@ export function CollectionCard({ collection }: { collection: CollectionCardData 
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted">No photo yet</div>
         )}
-        <div className="absolute left-3 top-3">
+        <div className="absolute left-3 top-3 flex gap-2">
+          {collection.isLive && <LiveMark />}
           <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold text-ink">
             {collection.itemCount} item{collection.itemCount === 1 ? "" : "s"}
           </span>

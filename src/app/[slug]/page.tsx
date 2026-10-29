@@ -4,6 +4,7 @@ import { ListingGrid, type CollectionCardData } from "@/components/listing-card"
 import { getActiveGarageSales, getActiveProduceStands } from "@/lib/listings";
 import { ListingStatus } from "@prisma/client";
 import { RESERVED_PATHS } from "@/lib/constants";
+import { garageSaleIsLive } from "@/lib/garage-live";
 import { isServiceSlug } from "@/lib/utils";
 import type { Metadata } from "next";
 
@@ -17,6 +18,7 @@ function toCollectionCards(rows: Awaited<ReturnType<typeof getActiveGarageSales>
     lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
     imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
     paymentMethod: c.paymentMethod,
+    isLive: garageSaleIsLive(c.liveAt),
   }));
 }
 

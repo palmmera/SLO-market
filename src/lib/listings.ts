@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { ListingStatus } from "@prisma/client";
+import { ListingStatus, PaymentMethod } from "@prisma/client";
+import { GARAGE_LIVE_WINDOW_MS } from "@/lib/garage-live";
 
 const listingInclude = {
   city: true,
@@ -59,12 +60,16 @@ export async function getActiveProduceStands(take = 48, cityId?: string) {
 }
 
 export async function getActiveGarageSales(take = 48, cityId?: string) {
+  const liveSince = new Date(Date.now() - GARAGE_LIVE_WINDOW_MS);
   return prisma.collection.findMany({
     where: {
       status: ListingStatus.ACTIVE,
       type: { not: "PRODUCE_STAND" },
-      listings: { some: { status: ListingStatus.ACTIVE } },
       ...(cityId ? { cityId } : {}),
+      OR: [
+        { listings: { some: { status: ListingStatus.ACTIVE, priceCents: { gt: 0 } } } },
+        { paymentMethod: PaymentMethod.CASH, liveAt: { gte: liveSince } },
+      ],
     },
     include: {
       city: true,

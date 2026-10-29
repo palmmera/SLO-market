@@ -321,7 +321,9 @@ export function InteractivePhotoViewer({
             {isUnavailable(selected.status)
               ? "Sold"
               : selected.priceCents === 0
-                ? "FREE"
+                ? selected.paymentMethod === "CASH"
+                  ? "Cash at pickup"
+                  : "FREE"
                 : formatMoney(selected.priceCents)}
           </div>
           {selected.condition && <p className="mt-2 text-sm text-muted">Condition: {selected.condition}</p>}

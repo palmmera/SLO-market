@@ -283,6 +283,11 @@ export function HotspotEditor({
         <div className="text-sm font-semibold">How buyers get these items</div>
         <p className="text-xs text-muted">Applies to every item in this {isProduce ? "produce stand" : "sale"}.</p>
         {!isProduce && <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />}
+        {!isProduce && paymentMethod === "CASH" && (
+          <p className="text-xs text-muted">
+            Put a price on each item in the photo. You can skip prices only while this cash-only sale is live.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -518,7 +523,16 @@ export function HotspotEditor({
         >
           <div className="text-sm font-semibold">{editing ? "Edit item" : "This box represents the item I'm selling."}</div>
           <input name="title" required defaultValue={editing?.title ?? draftTitle} placeholder={isProduce ? "Item name, e.g. Heirloom tomatoes" : "Item name, e.g. DeWalt Drill"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
-          <input name="price" type="number" min="0" step="0.01" defaultValue={editing ? editing.priceCents / 100 : ""} placeholder="Price, e.g. 5" className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
+          <input
+            name="price"
+            type="number"
+            min={isProduce ? "0" : "0.01"}
+            step="0.01"
+            required={!isProduce}
+            defaultValue={editing && editing.priceCents > 0 ? editing.priceCents / 100 : ""}
+            placeholder="Price, e.g. 5"
+            className="mt-3 w-full rounded-2xl bg-sand px-4 py-3"
+          />
           <input name="description" defaultValue={editing?.description} placeholder={isProduce ? "Short description, e.g. Organic, picked today." : "Short description, e.g. Good working condition."} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3" />
           {isProduce ? (
             <select name="produceProductType" defaultValue={editing?.produceProductType || "FRESH_PRODUCE"} className="mt-3 w-full rounded-2xl bg-sand px-4 py-3">

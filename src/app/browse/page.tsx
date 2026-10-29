@@ -2,6 +2,7 @@ import { prisma, safeDb } from "@/lib/db";
 import { getActiveGarageSales, getActiveProduceStands, searchListings } from "@/lib/listings";
 import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
 import { SearchHero } from "@/components/search-hero";
+import { garageSaleIsLive } from "@/lib/garage-live";
 
 export default async function BrowsePage({
   searchParams,
@@ -95,6 +96,7 @@ export default async function BrowsePage({
       lowestPriceCents: c.listings.length ? Math.min(...c.listings.map((l) => l.priceCents)) : null,
       imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
       paymentMethod: c.paymentMethod,
+      isLive: garageSaleIsLive(c.liveAt),
     }));
 
   return (

@@ -6,6 +6,7 @@ import { prisma, safeDb } from "@/lib/db";
 import { getActiveGarageSales, getActiveListings, getActiveProduceStands } from "@/lib/listings";
 import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
+import { garageSaleIsLive } from "@/lib/garage-live";
 
 function toCollectionCards(
   rows: Awaited<ReturnType<typeof getActiveGarageSales>>,
@@ -21,6 +22,7 @@ function toCollectionCards(
       : null,
     imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
     paymentMethod: c.paymentMethod,
+    isLive: garageSaleIsLive(c.liveAt),
   }));
 }
 

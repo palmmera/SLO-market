@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { getCollectionLiveMessages, type LiveFeedMessage } from "@/actions/live-feed";
+import { garageSaleLiveNow, getCollectionLiveMessages, setGarageSaleLive, type LiveFeedMessage } from "@/actions/live-feed";
 import { startMessage } from "@/actions/listings";
+import { LiveMark } from "@/components/listing-card";
 
 const VISIBLE_ROWS = 3;
 
@@ -30,6 +31,7 @@ export function GarageSaleLive({
   const [draft, setDraft] = useState("");
   const [listingId, setListingId] = useState(listings[0]?.id || "");
   const [sendError, setSendError] = useState("");
+  const [publicLive, setPublicLive] = useState(false);
   const [pending, start] = useTransition();
 
   useEffect(() => {
@@ -49,6 +51,39 @@ export function GarageSaleLive({
       window.clearInterval(timer);
     };
   }, [collectionId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const on = await garageSaleLiveNow(collectionId);
+        if (!cancelled) setPublicLive(on);
+      } catch {
+        // Keep the last live flag if a refresh fails.
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => void load(), 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [collectionId]);
+
+  useEffect(() => {
+    if (!live || !isOwner) return;
+    let stopped = false;
+    const beat = (announce: boolean) => {
+      if (!stopped) void setGarageSaleLive(collectionId, true, announce);
+    };
+    beat(true);
+    const timer = window.setInterval(() => beat(false), 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      void setGarageSaleLive(collectionId, false, true);
+    };
+  }, [live, isOwner, collectionId]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -182,8 +217,15 @@ export function GarageSaleLive({
     </div>
   );
 
+  const showingLive = publicLive || (isOwner && live);
+
   return (
     <div className="mt-4">
+      {showingLive && (
+        <div className="mb-3">
+          <LiveMark />
+        </div>
+      )}
       {isOwner && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {!live ? (

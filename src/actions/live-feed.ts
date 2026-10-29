@@ -1,7 +1,10 @@
 "use server";
 
 import { ListingStatus } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { garageSaleIsLive } from "@/lib/garage-live";
 
 export type LiveFeedMessage = {
   id: string;
@@ -32,4 +35,33 @@ export async function getCollectionLiveMessages(collectionId: string): Promise<L
     listingTitle: message.listingId ? titles.get(message.listingId) || "" : "",
     createdAt: message.createdAt.toISOString(),
   }));
+}
+
+export async function garageSaleLiveNow(collectionId: string) {
+  const collection = await prisma.collection.findUnique({
+    where: { id: collectionId },
+    select: { liveAt: true, type: true },
+  });
+  if (!collection || collection.type === "PRODUCE_STAND") return false;
+  return garageSaleIsLive(collection.liveAt);
+}
+
+export async function setGarageSaleLive(collectionId: string, live: boolean, announce = false) {
+  const session = await getSession();
+  if (!session?.user?.id) return;
+  const collection = await prisma.collection.findFirst({
+    where: { id: collectionId, sellerId: session.user.id, type: { not: "PRODUCE_STAND" } },
+    select: { id: true, slug: true },
+  });
+  if (!collection) return;
+  await prisma.collection.update({
+    where: { id: collection.id },
+    data: { liveAt: live ? new Date() : null },
+  });
+  if (announce) {
+    revalidatePath("/");
+    revalidatePath("/browse");
+    revalidatePath("/garage-sale");
+    revalidatePath(`/collection/${collection.slug}`);
+  }
 }
