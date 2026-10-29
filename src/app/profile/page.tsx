@@ -16,7 +16,11 @@ export default async function ProfilePage() {
       include: { city: true, stripeAccount: true, reviewsReceived: { where: { isHidden: false } }, foodSellerProfile: true },
     }),
     prisma.city.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.listing.findMany({ where: { sellerId: session.user.id }, orderBy: { createdAt: "desc" }, take: 12 }),
+    prisma.listing.findMany({
+      where: { sellerId: session.user.id, NOT: { extraDetails: { path: ["saleChat"], equals: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
     prisma.order.count({ where: { buyerId: session.user.id } }),
     prisma.order.count({ where: { sellerId: session.user.id } }),
   ]);

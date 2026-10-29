@@ -97,7 +97,7 @@ export async function saveListingImage(file: File, preserveOriginal = false) {
   };
 }
 
-const LIVE_FRAME_MAX_BYTES = 800_000;
+const LIVE_FRAME_MAX_BYTES = 1_500_000;
 
 /** Latest camera still for a live garage sale. One file per sale, replaced each second. */
 export async function saveLiveFrame(collectionId: string, bytes: Buffer) {
