@@ -30,9 +30,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
                   ? "image/gif"
                   : "image/jpeg";
     const isVideo = type.startsWith("video/");
+    const isLiveFrame = segments[0] === "live";
     const headers: Record<string, string> = {
       "Content-Type": type,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": isLiveFrame ? "no-store" : "public, max-age=31536000, immutable",
     };
     if (isVideo) {
       headers["Accept-Ranges"] = "bytes";

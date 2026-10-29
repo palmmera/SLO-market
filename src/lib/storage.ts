@@ -97,6 +97,17 @@ export async function saveListingImage(file: File, preserveOriginal = false) {
   };
 }
 
+const LIVE_FRAME_MAX_BYTES = 800_000;
+
+/** Latest camera still for a live garage sale. One file per sale, replaced each second. */
+export async function saveLiveFrame(collectionId: string, bytes: Buffer) {
+  if (!/^[a-zA-Z0-9]+$/.test(collectionId)) throw new Error("Bad sale.");
+  if (bytes.length < 32 || bytes.length > LIVE_FRAME_MAX_BYTES) throw new Error("Bad frame.");
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) throw new Error("Bad frame.");
+  const dir = await ensureDir(path.join(getUploadRoot(), "live"));
+  await writeFile(path.join(dir, `${collectionId}.jpg`), bytes);
+}
+
 export async function saveProfileImage(file: File) {
   assertImageFile(file);
   const buffer = Buffer.from(await file.arrayBuffer());

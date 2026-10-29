@@ -32,6 +32,8 @@ export function GarageSaleLive({
   const [listingId, setListingId] = useState(listings[0]?.id || "");
   const [sendError, setSendError] = useState("");
   const [publicLive, setPublicLive] = useState(false);
+  const [remoteOn, setRemoteOn] = useState(false);
+  const [remoteFrame, setRemoteFrame] = useState("");
   const [pending, start] = useTransition();
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export function GarageSaleLive({
       }
     }
     void load();
-    const timer = window.setInterval(() => void load(), 10000);
+    const timer = window.setInterval(() => void load(), 3000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -96,6 +98,76 @@ export function GarageSaleLive({
     videoRef.current.srcObject = streamRef.current;
     void videoRef.current.play().catch(() => undefined);
   }, [live]);
+
+  useEffect(() => {
+    if (!live || !isOwner) return;
+    let stopped = false;
+    const canvas = document.createElement("canvas");
+    const sendFrame = () => {
+      const video = videoRef.current;
+      if (!video || video.videoWidth < 2 || stopped) return;
+      const scale = Math.min(1, 720 / video.videoWidth);
+      canvas.width = Math.max(2, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(2, Math.round(video.videoHeight * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob || stopped) return;
+          const body = new FormData();
+          body.set("frame", blob, "frame.jpg");
+          void fetch(`/api/live/${collectionId}`, { method: "POST", body }).then((res) => {
+            if (res.ok) setCameraError("");
+            else setCameraError("Other people can’t see the camera yet. Stay on this page and try again.");
+          }).catch(() => {
+            setCameraError("Other people can’t see the camera yet. Stay on this page and try again.");
+          });
+        },
+        "image/jpeg",
+        0.6,
+      );
+    };
+    const timer = window.setInterval(sendFrame, 1000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [live, isOwner, collectionId]);
+
+  useEffect(() => {
+    if (isOwner && live) {
+      setRemoteOn(false);
+      return;
+    }
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const res = await fetch(`/api/live/${collectionId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { live?: boolean; src?: string | null };
+        if (cancelled) return;
+        setRemoteOn(Boolean(data.live));
+        if (data.live && data.src) {
+          const probe = new Image();
+          probe.onload = () => {
+            if (!cancelled) setRemoteFrame(data.src || "");
+          };
+          probe.src = data.src;
+        }
+      } catch {
+        // Keep the last picture if one check fails.
+      }
+    };
+    void pull();
+    const timer = window.setInterval(() => void pull(), 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [collectionId, isOwner, live]);
+
+  const showRemote = remoteOn && !(isOwner && live);
 
   useEffect(() => {
     return () => {
@@ -217,7 +289,7 @@ export function GarageSaleLive({
     </div>
   );
 
-  const showingLive = publicLive || (isOwner && live);
+  const showingLive = publicLive || remoteOn || (isOwner && live);
 
   return (
     <div className="mt-4">
@@ -237,7 +309,7 @@ export function GarageSaleLive({
               Stop camera
             </button>
           )}
-          <p className="text-xs text-muted">Your camera stays on this phone. Buyer messages roll over it, newest first.</p>
+          <p className="text-xs text-muted">Anyone who opens this sale can see the camera. Buyer messages roll over it, newest first.</p>
         </div>
       )}
       {cameraError && <p className="mb-2 text-sm text-clay">{cameraError}</p>}
@@ -251,7 +323,17 @@ export function GarageSaleLive({
             className="aspect-[3/4] max-h-[70vh] w-full rounded-[28px] bg-ink object-cover"
           />
         )}
-        <div className={live ? "absolute inset-x-3 bottom-3" : ""}>{feed}</div>
+        {showRemote && (
+          remoteFrame ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={remoteFrame} alt="Live garage sale" className="aspect-[3/4] max-h-[70vh] w-full rounded-[28px] bg-ink object-cover" />
+          ) : (
+            <div className="flex aspect-[3/4] max-h-[70vh] w-full items-center justify-center rounded-[28px] bg-ink px-6 text-center text-sm text-white">
+              Connecting to the live camera…
+            </div>
+          )
+        )}
+        <div className={live || showRemote ? "absolute inset-x-3 bottom-3" : ""}>{feed}</div>
       </div>
     </div>
   );
