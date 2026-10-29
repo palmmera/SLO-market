@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
+import { GarageSaleLive } from "@/components/garage-sale-live";
 import { formatCityCounty, conditionLabel, formatMoney } from "@/lib/utils";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -100,6 +101,22 @@ export default async function CollectionPage({
           </Link>
         )}
       </div>
+      {!isProduceStand && (
+        <GarageSaleLive
+          collectionId={collection.id}
+          collectionSlug={collection.slug}
+          isOwner={isOwner}
+          signedIn={Boolean(session?.user?.id)}
+          listings={Array.from(
+            new Map(
+              collection.images
+                .flatMap((img) => img.hotspots)
+                .filter((hotspot) => hotspot.listing.status === "ACTIVE")
+                .map((hotspot) => [hotspot.listing.id, { id: hotspot.listing.id, title: hotspot.listing.title }]),
+            ).values(),
+          )}
+        />
+      )}
       {collection.images.length > 0 && (
         <div className="mt-5">
           <InteractivePhotoViewer
