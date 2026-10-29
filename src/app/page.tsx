@@ -1,34 +1,17 @@
 import Link from "next/link";
 import { SearchHero } from "@/components/search-hero";
 import { CategoryGrid } from "@/components/category-grid";
-import { ListingGrid, type CollectionCardData } from "@/components/listing-card";
+import { ListingGrid } from "@/components/listing-card";
 import { prisma, safeDb } from "@/lib/db";
-import { getActiveGarageSales, getActiveListings, getActiveProduceStands } from "@/lib/listings";
+import { getActiveGarageSales, getActiveListings, getActiveProduceStands, getLiveGarageSales } from "@/lib/listings";
 import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
-import { garageSaleIsLive } from "@/lib/garage-live";
-
-function toCollectionCards(
-  rows: Awaited<ReturnType<typeof getActiveGarageSales>>,
-): CollectionCardData[] {
-  return rows.map((c) => ({
-    id: c.id,
-    slug: c.slug,
-    title: c.title,
-    city: c.city,
-    itemCount: c.listings.length,
-    lowestPriceCents: c.listings.length
-      ? Math.min(...c.listings.map((l) => l.priceCents))
-      : null,
-    imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
-    paymentMethod: c.paymentMethod,
-    isLive: garageSaleIsLive(c.liveAt),
-  }));
-}
+import { toCollectionCards } from "@/lib/garage-cards";
+import { LiveGarageStrip } from "@/components/live-garage-strip";
 
 export default async function HomePage() {
   const empty: never[] = [];
-  const [categories, cities, recent, produce, produceStands, free, rentals, featured, popular, garageSales] = await Promise.all([
+  const [categories, cities, recent, produce, produceStands, free, rentals, featured, popular, garageSales, liveSales] = await Promise.all([
     safeDb(
       () => prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: "asc" } }),
       empty,
@@ -69,14 +52,19 @@ export default async function HomePage() {
       empty,
     ),
     safeDb(() => getActiveGarageSales(6), empty),
+    safeDb(() => getLiveGarageSales(8), empty),
   ]);
 
-  const collectionCards = toCollectionCards(garageSales);
+  const liveCards = toCollectionCards(liveSales);
+  const liveIds = new Set(liveCards.map((sale) => sale.id));
+  const collectionCards = toCollectionCards(garageSales).filter((sale) => !liveIds.has(sale.id));
   const produceStandCards = toCollectionCards(produceStands);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
       <SearchHero />
+
+      <LiveGarageStrip initial={liveCards} />
 
       <section>
         <SectionHead title="Popular Categories" href="/browse" />

@@ -116,9 +116,11 @@ export function CollectionCard({ collection }: { collection: CollectionCardData 
         )}
         <div className="absolute left-3 top-3 flex gap-2">
           {collection.isLive && <LiveMark />}
-          <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold text-ink">
-            {collection.itemCount} item{collection.itemCount === 1 ? "" : "s"}
-          </span>
+          {collection.itemCount > 0 && (
+            <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold text-ink">
+              {collection.itemCount} item{collection.itemCount === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
       </div>
       <div className="p-3.5">

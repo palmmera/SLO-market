@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 import { absoluteUrl } from "@/lib/utils";
 import { FREE_CASH_GARAGE_SALE_LIMIT, FREE_CASH_PRODUCT_LIMIT, SELLER_PLAN_MONTHLY_CENTS } from "@/lib/constants";
+import { GARAGE_LIVE_WINDOW_MS } from "@/lib/garage-live";
 
 export const SELLER_PLAN_LOOKUP_KEY = "slo_seller_plan_monthly";
 
@@ -19,7 +20,7 @@ export const SELLER_PLAN_PRODUCT_MESSAGE =
   "A free account includes 20 cash products. Another cash product needs the $10/month Seller Plan. Card or both skips this limit. Card sales stay at 12%.";
 
 export const SELLER_PLAN_GARAGE_MESSAGE =
-  "A free account includes 1 cash garage sale. Another cash garage sale needs the $10/month Seller Plan. Card or both skips this limit. Card sales stay at 12%.";
+  "A free account includes 1 cash garage sale that buyers can see. Another one needs the $10/month Seller Plan. A cash sale with no prices counts only while it is live. Card or both skips this limit. Card sales stay at 12%.";
 
 export function isSellerPlanError(message: string) {
   return message.includes("Seller Plan");
@@ -69,6 +70,22 @@ export async function hasActiveSellerPlan(userId: string) {
   return subscriptionIsActive(sub);
 }
 
+/** A cash garage sale counts once buyers can see it: it has a price, or it is live right now. */
+function visibleCashGarageWhere(sellerId: string, excludeCollectionId?: string) {
+  const liveSince = new Date(Date.now() - GARAGE_LIVE_WINDOW_MS);
+  return {
+    sellerId,
+    status: ListingStatus.ACTIVE,
+    paymentMethod: PaymentMethod.CASH,
+    type: { in: GARAGE_COLLECTION_TYPES },
+    ...(excludeCollectionId ? { id: { not: excludeCollectionId } } : {}),
+    OR: [
+      { listings: { some: { status: ListingStatus.ACTIVE, priceCents: { gt: 0 } } } },
+      { liveAt: { gte: liveSince } },
+    ],
+  };
+}
+
 export async function getSellerPlanUsage(userId: string) {
   const [subscription, cashProducts, cashGarages] = await Promise.all([
     prisma.sellerSubscription.findUnique({ where: { userId } }),
@@ -81,14 +98,7 @@ export async function getSellerPlanUsage(userId: string) {
         listingType: ListingType.FOR_SALE,
       },
     }),
-    prisma.collection.count({
-      where: {
-        sellerId: userId,
-        status: ListingStatus.ACTIVE,
-        paymentMethod: PaymentMethod.CASH,
-        type: { in: GARAGE_COLLECTION_TYPES },
-      },
-    }),
+    prisma.collection.count({ where: visibleCashGarageWhere(userId) }),
   ]);
   return {
     active: subscriptionIsActive(subscription),
@@ -121,13 +131,7 @@ export async function assertCashProductAllowed(sellerId: string, excludeListingI
 export async function assertCashGarageAllowed(sellerId: string, excludeCollectionId?: string) {
   if (await hasActiveSellerPlan(sellerId)) return;
   const count = await prisma.collection.count({
-    where: {
-      sellerId,
-      status: ListingStatus.ACTIVE,
-      paymentMethod: PaymentMethod.CASH,
-      type: { in: GARAGE_COLLECTION_TYPES },
-      ...(excludeCollectionId ? { id: { not: excludeCollectionId } } : {}),
-    },
+    where: visibleCashGarageWhere(sellerId, excludeCollectionId),
   });
   if (count >= FREE_CASH_GARAGE_SALE_LIMIT) {
     throw new Error(SELLER_PLAN_GARAGE_MESSAGE);

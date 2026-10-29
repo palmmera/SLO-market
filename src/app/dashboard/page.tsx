@@ -113,8 +113,9 @@ export default async function SellerDashboard({
       <section className="mt-5 rounded-3xl bg-white p-5 card-shadow">
         <h2 className="font-display text-2xl">{plan.active ? "Seller Plan" : "Free seller"}</h2>
         <p className="mt-2 text-sm text-muted">
-          Cash is free for {plan.productLimit} products and {plan.garageLimit} garage sale. You are using {plan.cashProducts} cash
-          product{plan.cashProducts === 1 ? "" : "s"} and {plan.cashGarages} cash garage sale{plan.cashGarages === 1 ? "" : "s"}.
+          Cash is free for {plan.productLimit} products and {plan.garageLimit} garage sale buyers can see. A cash sale with no
+          prices counts only while it is live. You are using {plan.cashProducts} cash product{plan.cashProducts === 1 ? "" : "s"}{" "}
+          and {plan.cashGarages} cash garage sale{plan.cashGarages === 1 ? "" : "s"}.
           More than that is $10 a month. Card and “card or cash” listings are not capped, and card sales stay at 12%.
         </p>
         {plan.active && plan.currentPeriodEnd && (

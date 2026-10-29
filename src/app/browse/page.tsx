@@ -97,7 +97,8 @@ export default async function BrowsePage({
       imageUrl: c.images[0]?.displayUrl || c.images[0]?.originalUrl || null,
       paymentMethod: c.paymentMethod,
       isLive: garageSaleIsLive(c.liveAt),
-    }));
+    }))
+    .sort((a, b) => Number(Boolean(b.isLive)) - Number(Boolean(a.isLive)));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">

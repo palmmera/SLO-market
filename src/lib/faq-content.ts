@@ -12,7 +12,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "Can I take cash instead of a card?",
     answer:
-      "Yes. On a for-sale listing or a garage sale, choose Cash at meetup, Card on SLO Market, or both. Cash is free for 20 products and 1 garage sale. Items tagged inside that garage sale do not count toward the 20. More cash listings need the $10/month Seller Plan. Card and “card or cash” listings are not capped. Card payments still include the 12% commission.",
+      "Yes. On a for-sale listing or a garage sale, choose Cash at meetup, Card on SLO Market, or both. Cash is free for 20 products and 1 garage sale buyers can see. A cash garage sale with no prices counts only while the seller is live. Items tagged inside that garage sale do not count toward the 20. More cash listings need the $10/month Seller Plan. Card and “card or cash” listings are not capped. Card payments still include the 12% commission.",
   },
   {
     question: "How do I sell something?",

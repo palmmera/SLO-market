@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { garageSaleIsLive } from "@/lib/garage-live";
+import { toCollectionCards } from "@/lib/garage-cards";
+import { getLiveGarageSales } from "@/lib/listings";
 
 export type LiveFeedMessage = {
   id: string;
@@ -35,6 +37,12 @@ export async function getCollectionLiveMessages(collectionId: string): Promise<L
     listingTitle: message.listingId ? titles.get(message.listingId) || "" : "",
     createdAt: message.createdAt.toISOString(),
   }));
+}
+
+/** Live garage sales for the front page. Empty when nobody's camera is on. */
+export async function getFrontPageLiveGarageSales() {
+  const rows = await getLiveGarageSales(8);
+  return toCollectionCards(rows);
 }
 
 export async function garageSaleLiveNow(collectionId: string) {

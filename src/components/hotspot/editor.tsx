@@ -285,7 +285,7 @@ export function HotspotEditor({
         {!isProduce && <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />}
         {!isProduce && paymentMethod === "CASH" && (
           <p className="text-xs text-muted">
-            Put a price on each item in the photo. You can skip prices only while this cash-only sale is live.
+            Put a price on each item in the photo. You can skip prices only while this cash-only sale is live. Until then it stays off Garage Sale and does not use your free cash garage sale.
           </p>
         )}
         <div className="grid grid-cols-2 gap-2">

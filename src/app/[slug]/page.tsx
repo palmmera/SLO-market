@@ -74,7 +74,9 @@ export default async function SeoPage({ params }: { params: Promise<{ slug: stri
   // Garage / photo sales are Collections — show them on the Garage Sale category page.
   if (category.slug === "garage-sale") {
     const garageSales = await safeDb(() => getActiveGarageSales(48), []);
-    const collectionCards = toCollectionCards(garageSales);
+    const collectionCards = toCollectionCards(garageSales).sort(
+      (a, b) => Number(Boolean(b.isLive)) - Number(Boolean(a.isLive)),
+    );
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
         <h1 className="font-display text-4xl">{category.name}</h1>

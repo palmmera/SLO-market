@@ -84,6 +84,33 @@ export async function getActiveGarageSales(take = 48, cityId?: string) {
   });
 }
 
+/** Garage sales a buyer can open right now because the seller's camera is on. */
+export async function getLiveGarageSales(take = 8, cityId?: string) {
+  const liveSince = new Date(Date.now() - GARAGE_LIVE_WINDOW_MS);
+  return prisma.collection.findMany({
+    where: {
+      status: ListingStatus.ACTIVE,
+      type: { not: "PRODUCE_STAND" },
+      liveAt: { gte: liveSince },
+      ...(cityId ? { cityId } : {}),
+      OR: [
+        { listings: { some: { status: ListingStatus.ACTIVE, priceCents: { gt: 0 } } } },
+        { paymentMethod: PaymentMethod.CASH },
+      ],
+    },
+    include: {
+      city: true,
+      images: { orderBy: { sortOrder: "asc" }, take: 1 },
+      listings: {
+        where: { status: ListingStatus.ACTIVE },
+        select: { id: true, priceCents: true },
+      },
+    },
+    orderBy: { liveAt: "desc" },
+    take,
+  });
+}
+
 export async function searchListings(params: {
   q?: string;
   categoryId?: string;
