@@ -128,7 +128,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <Link href="/sell/photo" className="rounded-full border border-white/50 px-4 py-2 text-sm font-semibold">
-            Sell live
+            Live garage sale
           </Link>
         </div>
       </section>
