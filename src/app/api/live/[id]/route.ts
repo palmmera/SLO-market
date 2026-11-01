@@ -4,11 +4,13 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getUploadRoot, saveLiveFrame } from "@/lib/storage";
+import { LIVE_GARAGE_ENABLED } from "@/lib/garage-live";
 
 const LIVE_FRAME_MS = 5_000;
 
 /** Other phones ask this once a second. Live means a new camera picture arrived in the last few seconds. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!LIVE_GARAGE_ENABLED) return NextResponse.json({ live: false, src: null });
   const { id } = await params;
   if (!/^[a-zA-Z0-9]+$/.test(id)) return NextResponse.json({ live: false, src: null });
   try {
@@ -25,6 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
 /** The seller's phone posts one camera still about once a second while they are live. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!LIVE_GARAGE_ENABLED) return NextResponse.json({ error: "Live is paused." }, { status: 404 });
   const session = await getSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in to go live." }, { status: 401 });
 

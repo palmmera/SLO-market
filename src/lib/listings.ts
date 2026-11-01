@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ListingStatus, PaymentMethod } from "@prisma/client";
-import { GARAGE_LIVE_WINDOW_MS } from "@/lib/garage-live";
+import { GARAGE_LIVE_WINDOW_MS, LIVE_GARAGE_ENABLED } from "@/lib/garage-live";
 
 const listingInclude = {
   city: true,
@@ -86,6 +86,7 @@ export async function getActiveGarageSales(take = 48, cityId?: string) {
 
 /** Garage sales a buyer can open right now because the seller's camera is on. */
 export async function getLiveGarageSales(take = 8, cityId?: string) {
+  if (!LIVE_GARAGE_ENABLED) return [];
   const liveSince = new Date(Date.now() - GARAGE_LIVE_WINDOW_MS);
   return prisma.collection.findMany({
     where: {

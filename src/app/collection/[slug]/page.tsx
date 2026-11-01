@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { InteractivePhotoViewer } from "@/components/hotspot/viewer";
 import { GarageSaleLive } from "@/components/garage-sale-live";
 import { formatCityCounty, conditionLabel, formatMoney } from "@/lib/utils";
+import { LIVE_GARAGE_ENABLED } from "@/lib/garage-live";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const collection = await prisma.collection.findUnique({
@@ -101,8 +102,8 @@ export default async function CollectionPage({
           </Link>
         )}
       </div>
-      {!isProduceStand && (
-        <GarageSaleLive
+      {LIVE_GARAGE_ENABLED && !isProduceStand && (
+        <GarageSaleLive>
           collectionId={collection.id}
           collectionSlug={collection.slug}
           isOwner={isOwner}

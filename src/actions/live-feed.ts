@@ -4,7 +4,7 @@ import { ListingStatus, ListingType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { garageSaleIsLive } from "@/lib/garage-live";
+import { garageSaleIsLive, LIVE_GARAGE_ENABLED } from "@/lib/garage-live";
 import { toCollectionCards } from "@/lib/garage-cards";
 import { getLiveGarageSales } from "@/lib/listings";
 import { makeSlug } from "@/lib/slug";
@@ -110,11 +110,13 @@ export async function messageGarageSale(collectionId: string, body: string, list
 
 /** Live garage sales for the front page. Empty when nobody's camera is on. */
 export async function getFrontPageLiveGarageSales() {
+  if (!LIVE_GARAGE_ENABLED) return [];
   const rows = await getLiveGarageSales(8);
   return toCollectionCards(rows);
 }
 
 export async function garageSaleLiveNow(collectionId: string) {
+  if (!LIVE_GARAGE_ENABLED) return false;
   const collection = await prisma.collection.findUnique({
     where: { id: collectionId },
     select: { liveAt: true, type: true },
@@ -124,6 +126,7 @@ export async function garageSaleLiveNow(collectionId: string) {
 }
 
 export async function setGarageSaleLive(collectionId: string, live: boolean, announce = false) {
+  if (!LIVE_GARAGE_ENABLED) return;
   const session = await getSession();
   if (!session?.user?.id) return;
   const collection = await prisma.collection.findFirst({

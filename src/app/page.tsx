@@ -8,6 +8,7 @@ import { ListingStatus, ListingType } from "@prisma/client";
 import { SAFETY_TIPS, MARKETPLACE_DISCLAIMER } from "@/lib/constants";
 import { toCollectionCards } from "@/lib/garage-cards";
 import { LiveGarageStrip } from "@/components/live-garage-strip";
+import { LIVE_GARAGE_ENABLED } from "@/lib/garage-live";
 
 export default async function HomePage() {
   const empty: never[] = [];
@@ -52,10 +53,10 @@ export default async function HomePage() {
       empty,
     ),
     safeDb(() => getActiveGarageSales(6), empty),
-    safeDb(() => getLiveGarageSales(8), empty),
+    LIVE_GARAGE_ENABLED ? safeDb(() => getLiveGarageSales(8), empty) : Promise.resolve(empty),
   ]);
 
-  const liveCards = toCollectionCards(liveSales);
+  const liveCards = LIVE_GARAGE_ENABLED ? toCollectionCards(liveSales) : [];
   const liveIds = new Set(liveCards.map((sale) => sale.id));
   const collectionCards = toCollectionCards(garageSales).filter((sale) => !liveIds.has(sale.id));
   const produceStandCards = toCollectionCards(produceStands);
@@ -64,7 +65,7 @@ export default async function HomePage() {
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
       <SearchHero />
 
-      <LiveGarageStrip initial={liveCards} />
+      {LIVE_GARAGE_ENABLED && <LiveGarageStrip initial={liveCards} />}
 
       <section>
         <SectionHead title="Popular Categories" href="/browse" />
@@ -118,17 +119,12 @@ export default async function HomePage() {
       <section className="overflow-hidden rounded-[28px] bg-clay px-6 py-10 text-white md:px-10">
         <h2 className="font-display text-3xl md:text-5xl">Got something to sell?</h2>
         <p className="mt-2 max-w-lg text-white/90">Basic listings are free. Upload photos, add a price, choose pickup or local delivery, and publish in a few minutes.</p>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-3">
-            <Link href="/sell" className="rounded-full bg-white px-5 py-3 font-semibold text-ink">
-              Sell Something
-            </Link>
-            <Link href="/sell/food" className="rounded-full border border-white/40 px-5 py-3 font-semibold">
-              Sell local food
-            </Link>
-          </div>
-          <Link href="/sell/photo" className="rounded-full border border-white/50 px-4 py-2 text-sm font-semibold">
-            Live garage sale
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/sell" className="rounded-full bg-white px-5 py-3 font-semibold text-ink">
+            Sell Something
+          </Link>
+          <Link href="/sell/food" className="rounded-full border border-white/40 px-5 py-3 font-semibold">
+            Sell local food
           </Link>
         </div>
       </section>

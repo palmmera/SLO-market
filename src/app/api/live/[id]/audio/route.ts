@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getUploadRoot } from "@/lib/storage";
+import { LIVE_GARAGE_ENABLED } from "@/lib/garage-live";
 
 const MAX_BYTES = 100_000;
 const FRESH_MS = 8_000;
@@ -50,6 +51,7 @@ async function clips(dir: string, role: "seller" | "buyer") {
 
 /** The other person asks for the next short clip of voice. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!LIVE_GARAGE_ENABLED) return new NextResponse(null, { status: 204 });
   const { id } = await params;
   const dir = audioDir(id);
   const role = roleOf(new URL(req.url).searchParams.get("role"));
@@ -72,6 +74,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 /** Seller mic, or a buyer holding Talk, posts one short clip. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!LIVE_GARAGE_ENABLED) return NextResponse.json({ error: "Live is paused." }, { status: 404 });
   const session = await getSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in to talk." }, { status: 401 });
 
