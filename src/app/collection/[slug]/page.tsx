@@ -103,7 +103,7 @@ export default async function CollectionPage({
         )}
       </div>
       {LIVE_GARAGE_ENABLED && !isProduceStand && (
-        <GarageSaleLive>
+        <GarageSaleLive
           collectionId={collection.id}
           collectionSlug={collection.slug}
           isOwner={isOwner}
